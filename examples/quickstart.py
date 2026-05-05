@@ -33,9 +33,9 @@ Run:
 """
 
 import os
-import sys
 from pathlib import Path
 
+from typing import TypedDict
 from counterfact import StateGraph, END
 from counterfact.classifiers import ClassifierRegistry
 from counterfact.types import ClassifierResult
@@ -71,8 +71,6 @@ KNOWLEDGE_BASE = [
 ]
 
 # ─── Pipeline State ──────────────────────────────────────────────────────
-
-from typing import TypedDict
 
 class PipelineState(TypedDict):
     query: str
@@ -159,33 +157,12 @@ def _make_summarizer(client):
     return summarizer
 
 
-def _deterministic_summarizer(state: PipelineState) -> dict:
-    """Fallback summarizer when LLM is unavailable."""
-    facts = state.get("retrieved_facts", [])
-    if not facts:
-        return {"summary": "No relevant information found.", "output": "No relevant information found."}
-
-    answer_parts = ["Based on available knowledge:"]
-    for fact in facts:
-        answer_parts.append(f"- {fact['text']}")
-    answer_parts.append("")
-    answer_parts.append(
-        "Given Venus's thick CO2 atmosphere and proximity to the Sun, "
-        "its surface temperature is likely extremely high."
-    )
-    summary = "\n".join(answer_parts)
-    return {"summary": summary, "output": summary}
-
-
 # ─── Build Pipeline ──────────────────────────────────────────────────────
 
-def build_pipeline(client=None):
+def build_pipeline(client):
     graph = StateGraph(PipelineState)
     graph.add_node("retriever", retriever)
-    if client is not None:
-        graph.add_node("summarizer", _make_summarizer(client))
-    else:
-        graph.add_node("summarizer", _deterministic_summarizer)
+    graph.add_node("summarizer", _make_summarizer(client))
     graph.add_node("fact_checker", fact_checker)
 
     graph.set_entry_point("retriever")
@@ -217,16 +194,6 @@ def make_llm_classifiers(client):
         if not output or "No relevant information" in output:
             return ClassifierResult(name="answer_relevance", score=0.1, reasoning="Output produced no answer.", weight=1.5)
             
-        if client is None:
-            # Deterministic fallback if API key is missing
-            output_lower = output.lower()
-            import re
-            has_specific_temp = bool(re.search(r'\d+\s*°?[CFK]', output))
-            if has_specific_temp and "venus" in output_lower: return ClassifierResult(name="answer_relevance", score=0.9, reasoning="fallback")
-            elif "temperature" in output_lower and "high" in output_lower: return ClassifierResult(name="answer_relevance", score=0.3, reasoning="fallback", weight=1.5)
-            elif "temperature" in output_lower: return ClassifierResult(name="answer_relevance", score=0.2, reasoning="fallback", weight=1.5)
-            else: return ClassifierResult(name="answer_relevance", score=0.1, reasoning="fallback", weight=1.5)
-
         prompt = (
             f"Query: {query}\n"
             f"Output: {output}\n\n"
@@ -240,7 +207,8 @@ def make_llm_classifiers(client):
                 model="claude-3-haiku-20240307", max_tokens=150, temperature=0.0,
                 messages=[{"role": "user", "content": prompt}],
             )
-            import json, re
+            import json
+            import re
             match = re.search(r'```(?:json)?(.*?)```', response.content[0].text, re.DOTALL)
             text = match.group(1) if match else response.content[0].text
             parsed = json.loads(text.strip())
@@ -256,13 +224,6 @@ def make_llm_classifiers(client):
         if not output:
             return ClassifierResult(name="source_coverage", score=0.1, reasoning="No output")
             
-        if client is None:
-            # Deterministic fallback if API key is missing
-            import re
-            has_temp_data = bool(re.search(r'\d+\s*°?[CFK]', output))
-            if has_temp_data and "surface" in output.lower(): return ClassifierResult(name="source_coverage", score=0.9, reasoning="fallback")
-            elif "atmosphere" in output.lower(): return ClassifierResult(name="source_coverage", score=0.3, reasoning="fallback")
-            else: return ClassifierResult(name="source_coverage", score=0.1, reasoning="fallback")
 
         prompt = (
             f"Sources: {sources}\n"
@@ -277,7 +238,8 @@ def make_llm_classifiers(client):
                 model="claude-3-haiku-20240307", max_tokens=150, temperature=0.0,
                 messages=[{"role": "user", "content": prompt}],
             )
-            import json, re
+            import json
+            import re
             match = re.search(r'```(?:json)?(.*?)```', response.content[0].text, re.DOTALL)
             text = match.group(1) if match else response.content[0].text
             parsed = json.loads(text.strip())
@@ -299,24 +261,22 @@ def main():
     print("  Diagnosing a retrieval failure in a 3-agent RAG pipeline")
     print("=" * 72)
 
-    # Try to set up LLM-based pipeline; fall back to deterministic if unavailable
-    client = None
+    api_key = load_anthropic_key()
+    import anthropic
+    client = anthropic.Anthropic(api_key=api_key)
+    
+    # Test connectivity
     try:
-        api_key = load_anthropic_key()
-        import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
-        # Test connectivity
         client.messages.create(
             model="claude-sonnet-4-20250514", max_tokens=5,
             messages=[{"role": "user", "content": "hi"}],
         )
-        print(f"\n  ✓ Using Claude for synthesis (non-deterministic → meaningful CIs)")
-    except (SystemExit, Exception) as e:
-        client = None
-        import traceback
-        traceback.print_exc()
-        print(f"\n  ⚠ LLM unavailable ({type(e).__name__}), using deterministic summarizer")
-        print(f"    (Set ANTHROPIC_API_KEY for LLM-based diagnosis with real CIs)")
+        print("\n  ✓ Using Claude for synthesis and grounding checks")
+    except Exception as e:
+        print(f"\n  ERROR: Could not connect to Anthropic API ({type(e).__name__}).")
+        print("  Please check your ANTHROPIC_API_KEY and network connection.")
+        import sys
+        sys.exit(1)
 
     # Build the pipeline
     pipeline = build_pipeline(client)
@@ -395,7 +355,7 @@ def main():
     print(f"\nBaseline Quality: {report.baseline_quality:.3f}")
     print(f"Attribution Method: {report.attribution_method}")
 
-    print(f"\nShapley Values (marginal contribution of each agent):")
+    print("\nShapley Values (marginal contribution of each agent):")
     for agent, value in sorted(report.shapley_values.items(), key=lambda x: abs(x[1]), reverse=True):
         bar_width = int(abs(value) * 20)
         if value < 0:
@@ -414,7 +374,7 @@ def main():
         print(f"  {agent:>15s}: {sign}{value:.3f}  {bar}{ci_str}")
 
     if report.per_classifier_shapley:
-        print(f"\nPer-Classifier Shapley Breakdown:")
+        print("\nPer-Classifier Shapley Breakdown:")
         for clf_name, agent_values in report.per_classifier_shapley.items():
             print(f"\n  {clf_name}:")
             for agent, value in sorted(agent_values.items(), key=lambda x: abs(x[1]), reverse=True):
@@ -439,18 +399,18 @@ def main():
     if cls.confidence_explanation:
         print(f"Confidence Basis: {cls.confidence_explanation}")
 
-    print(f"\nEvidence:")
+    print("\nEvidence:")
     for ev in cls.evidence:
         print(f"  • {ev}")
 
     if report.recommendations:
-        print(f"\nRecommendations:")
+        print("\nRecommendations:")
         for i, rec in enumerate(report.recommendations, 1):
             print(f"  {i}. [{rec.intervention_type}] {rec.description}")
             if rec.target_agent:
                 print(f"     Target: {rec.target_agent}")
 
-    print(f"\nSimulation Summary:")
+    print("\nSimulation Summary:")
     summary = report.simulation_results_summary
     print(f"  Total simulations: {summary['total_simulations']}")
     print(f"  Baseline runs: {summary['baseline_runs']}")
