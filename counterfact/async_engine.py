@@ -110,7 +110,11 @@ async def run_monte_carlo_async(
             if llm_fn_async:
                 # Build the coalition output step-by-step.
                 # We run each step as an awaited async call to avoid blocking.
-                from counterfact.perturbation import _get_agent_output_from_trace
+                def _get_agent_output_from_trace(t, a):
+                    for entry in t:
+                        if entry.get("node") == a:
+                            return entry.get("output", {})
+                    return {}
                 agents_ordered = list(dict.fromkeys(
                     entry["node"] for entry in trace if entry["node"] != "output"
                 ))

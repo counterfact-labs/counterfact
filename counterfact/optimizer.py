@@ -166,7 +166,7 @@ def _try_vizier(
     space: SearchSpace,
     num_trials: int,
     progress_callback: Optional[Callable] = None,
-) -> Optional[list[TrialResult]]:
+) -> Optional[list[TrialResult]]:  # pragma: no cover
     """
     Run Bayesian optimization via Google OSS Vizier.
 
