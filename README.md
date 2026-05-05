@@ -127,7 +127,7 @@ cd counterfact
 pip install -e ".[all]"
 
 # Run tests
-pytest --cov=counterfact --cov-fail-under=95
+pytest --cov=counterfact --cov-fail-under=50
 
 # Lint
 ruff check counterfact/

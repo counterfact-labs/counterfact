@@ -61,8 +61,9 @@ def test_counterfactual_graph_stream():
     assert len(chunks) > 0
     assert chunks[-1] == {"agent": {"k": 2}}
 
-@pytest.mark.asyncio
-async def test_counterfactual_graph_ainvoke():
+import asyncio
+
+def test_counterfactual_graph_ainvoke():
     graph = StateGraph(dict)
     def my_fn(x):
         return {"k": x.get("k", 0) + 1}
@@ -71,11 +72,10 @@ async def test_counterfactual_graph_ainvoke():
     graph.set_finish_point("agent")
     compiled = graph.compile()
     
-    res = await compiled.ainvoke({"k": 1})
+    res = asyncio.run(compiled.ainvoke({"k": 1}))
     assert res == {"k": 2}
 
-@pytest.mark.asyncio
-async def test_counterfactual_graph_astream():
+def test_counterfactual_graph_astream():
     graph = StateGraph(dict)
     def my_fn(x):
         return {"k": x.get("k", 0) + 1}
@@ -84,9 +84,13 @@ async def test_counterfactual_graph_astream():
     graph.set_finish_point("agent")
     compiled = graph.compile()
     
-    chunks = []
-    async for chunk in compiled.astream({"k": 1}):
-        chunks.append(chunk)
+    async def run_stream():
+        chunks = []
+        async for chunk in compiled.astream({"k": 1}):
+            chunks.append(chunk)
+        return chunks
+        
+    chunks = asyncio.run(run_stream())
     
     assert len(chunks) > 0
     assert chunks[-1] == {"agent": {"k": 2}}
