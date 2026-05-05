@@ -32,9 +32,9 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional, Type
 from dataclasses import dataclass, field
-from copy import deepcopy
 
-from langgraph.graph import StateGraph as _LangGraphStateGraph, START, END
+from langgraph.graph import StateGraph as _LangGraphStateGraph
+from langgraph.graph import END as END, START as START
 
 from counterfact.tracing import (
     TracingContext,

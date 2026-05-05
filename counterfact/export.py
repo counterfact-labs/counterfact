@@ -77,7 +77,7 @@ def to_markdown(report: "DiagnosticReport", path: Optional[str] = None) -> str:
         lines.append(f"**Confidence**: `{rec.measurement_confidence}`")
         if rec.agent_spec:
             lines.append("\n**Agent Specification**:")
-            lines.append(f"```json\n{{json.dumps(rec.agent_spec.to_dict(), indent=2)}}\n```")
+            lines.append("```json\n{json.dumps(rec.agent_spec.to_dict(), indent=2)}\n```")
             
     res = "\n".join(lines)
     if path:

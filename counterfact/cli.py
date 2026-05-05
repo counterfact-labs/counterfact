@@ -20,11 +20,6 @@ from typing import Optional
 
 try:
     from rich.console import Console
-    from rich.progress import (
-        Progress, SpinnerColumn, TextColumn,
-        BarColumn, TimeRemainingColumn,
-    )
-    from rich.markdown import Markdown
     from rich.panel import Panel
     from rich.table import Table
     from rich.tree import Tree

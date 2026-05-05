@@ -108,7 +108,7 @@ async def run_monte_carlo_async(
             if llm_fn_async:
                 # Build the coalition output step-by-step.
                 # We run each step as an awaited async call to avoid blocking.
-                from counterfact.perturbation import run_coalition, _simulate_agent_step, _get_agent_output_from_trace
+                from counterfact.perturbation import _get_agent_output_from_trace
                 agents_ordered = list(dict.fromkeys(
                     entry["node"] for entry in trace if entry["node"] != "output"
                 ))
@@ -123,8 +123,6 @@ async def run_monte_carlo_async(
                             original_output = _get_agent_output_from_trace(trace, agent)
                             # Build the prompt directly (same logic as _simulate_agent_step)
                             # then await the async LLM call.
-                            from counterfact.perturbation import _simulate_agent_step as _step
-                            import inspect
                             # We need the prompt — re-use the function's logic by
                             # calling it with a sync shim and letting it build/return.
                             if not current_state:

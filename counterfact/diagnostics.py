@@ -30,8 +30,6 @@ from counterfact.types import (
 from counterfact.evals import run_eval_suite
 from counterfact.perturbation import run_monte_carlo
 from counterfact.attribution import (
-    compute_loo_attribution,
-    is_loo_inconclusive,
     compute_shapley_values,
     compute_per_classifier_loo,
     classify_failure,

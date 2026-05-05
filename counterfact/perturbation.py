@@ -227,7 +227,6 @@ def run_monte_carlo(
         random.seed(seed)
         np.random.seed(seed)
 
-    perturbations = generate_perturbations_from_graph(graph)
     agents = graph.get_node_names()
 
     # ── Step 1: Baseline runs ────────────────────────────────────────

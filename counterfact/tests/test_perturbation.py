@@ -1,6 +1,4 @@
-import pytest
 from unittest.mock import MagicMock, patch
-from counterfact.types import Perturbation
 from counterfact.perturbation import (
     generate_perturbations_from_graph,
     generate_perturbations,
@@ -94,7 +92,6 @@ def test_run_monte_carlo(mock_get_registry):
     from counterfact.types import ClassifierResult
     mock_registry.run_all.return_value = [ClassifierResult("c1", 0.8, "")]
     # Aggregate quality
-    from counterfact.classifiers import ClassifierRegistry
     
     mock_graph = MagicMock()
     mock_graph.get_node_names.return_value = ["agent1", "agent2"]

@@ -28,7 +28,7 @@ Dependencies: numpy (types only for dataclasses)
 """
 
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable, Optional, Any
 
 

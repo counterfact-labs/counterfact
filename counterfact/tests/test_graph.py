@@ -1,10 +1,7 @@
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from copy import deepcopy
+from unittest.mock import patch
 
-from langgraph.graph import START, END
-from counterfact.graph import StateGraph, CounterfactualGraph, _BuildRecipe
-from counterfact.tracing import TracingContext
+from counterfact.graph import StateGraph
 
 def test_stategraph_build_recipe():
     # Test that adding nodes and edges builds the recipe correctly

@@ -9,8 +9,6 @@ repeated diagnostic runs.
 import os
 import json
 import hashlib
-import time
-from typing import Optional, Callable
 
 # Load configuration (assumes root config.py is reachable)
 try:

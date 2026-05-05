@@ -22,7 +22,7 @@ Dependencies: types, numpy
 
 import itertools
 import random
-from typing import Optional, Callable
+from typing import Optional
 
 import numpy as np
 
@@ -148,11 +148,9 @@ def compute_shapley_values(
     registry=None,
     n_permutations: int = 20,
 ) -> tuple[dict[str, float], dict[str, "ConfidenceInterval"], dict[str, dict[str, float]]]:
-    import itertools
-    import random
     import numpy as np
     from collections import defaultdict
-    from counterfact.types import ConfidenceInterval, ClassifierResult
+    from counterfact.types import ConfidenceInterval
 
     agents = list(dict.fromkeys(
         entry["node"] for entry in trace if entry["node"] != "output"
@@ -460,11 +458,11 @@ def classify_failure(
     def _confidence_explanation(conf, n_sims, failure_type, shapley_cis):
         parts = [f"Based on {n_sims} simulations."]
         if failure_type == "local":
-            parts.append(f"Confidence derived from bootstrap CI separation between top two agents.")
+            parts.append("Confidence derived from bootstrap CI separation between top two agents.")
         elif failure_type == "architectural_gap":
-            parts.append(f"All agents' 95% CIs are consistent with near-zero impact.")
+            parts.append("All agents' 95% CIs are consistent with near-zero impact.")
         elif failure_type == "systemic":
-            parts.append(f"Multiple agents have overlapping CIs — classification is less certain.")
+            parts.append("Multiple agents have overlapping CIs — classification is less certain.")
         parts.append(f"Confidence = {conf:.0%}")
         return " ".join(parts)
 

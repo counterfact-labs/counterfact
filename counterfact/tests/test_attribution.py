@@ -20,7 +20,6 @@ def test_compute_bootstrap_ci_multiple():
     assert ci.n_samples == 5
 
 def _make_sim(sim_id, agents_ablated="", is_baseline=False, quality=0.5, clf_scores=None):
-    from counterfact.types import Perturbation
     if clf_scores is None:
         clf_scores = {"c1": quality}
     clfs = [ClassifierResult(k, v, "ok", 1.0) for k, v in clf_scores.items()]

@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import MagicMock, patch
 
 from counterfact.types import (
@@ -254,7 +253,6 @@ def test_run_full_diagnostic_failure_focused_attribution(
         simulation_id=0, perturbation=None, quality_score=0.4,
         classifier_results=[ClassifierResult("c1", 0.4, "")], is_baseline=True
     )
-    from counterfact.types import Perturbation
     sim_ablate = SimulationResult(
         simulation_id=1, perturbation=Perturbation("a", "ablate", "", 1.0), quality_score=0.3,
         classifier_results=[ClassifierResult("c1", 0.3, "")], is_baseline=False
