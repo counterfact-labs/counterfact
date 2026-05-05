@@ -12,7 +12,7 @@ import hashlib
 
 # Load configuration (assumes root config.py is reachable)
 try:
-    from config import get_anthropic_api_key, get_google_api_key, get_api_key
+    from config import get_anthropic_api_key, get_google_api_key, get_api_key  # type: ignore
 except ImportError:
     # Fallback for standalone usage
     def get_api_key(): return ""
@@ -65,7 +65,7 @@ def call_llm(prompt: str, temperature: float = 0.1) -> str:
                     max_output_tokens=2000,
                 ),
             )
-            result = response.text
+            result = response.text or ""
             _llm_cache[key] = result
             save_cache()
             return result
@@ -77,14 +77,15 @@ def call_llm(prompt: str, temperature: float = 0.1) -> str:
     if anthropic_key:
         try:
             import anthropic
-            client = anthropic.Anthropic(api_key=anthropic_key)
-            response = client.messages.create(
+            anthropic_client = anthropic.Anthropic(api_key=anthropic_key)
+            anthropic_response = anthropic_client.messages.create(
                 model=_ANTHROPIC_MODEL,
                 max_tokens=2000,
                 temperature=temperature,
                 messages=[{"role": "user", "content": prompt}],
             )
-            result = response.content[0].text
+            block = anthropic_response.content[0]
+            result = getattr(block, "text", str(block))
             _llm_cache[key] = result
             save_cache()
             return result

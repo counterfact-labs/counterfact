@@ -282,7 +282,7 @@ def run_monte_carlo(
     coalitions_to_run = set()
     full_coalition = frozenset(agents)
     for perm in perms:
-        coalition = frozenset()
+        coalition: frozenset[str] = frozenset()
         for agent in perm:
             coalition = coalition | {agent}
             if coalition != full_coalition and coalition:

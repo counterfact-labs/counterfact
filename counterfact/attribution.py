@@ -22,7 +22,7 @@ Dependencies: types, numpy
 
 import itertools
 import random
-from typing import Optional
+from typing import Optional, Callable
 
 import numpy as np
 
@@ -139,8 +139,8 @@ def compute_shapley_values(
     simulation_results: list,
     trace: list[dict],
     graph=None,
-    input_state: dict = None,
-    llm_fn: callable = None,
+    input_state: Optional[dict] = None,
+    llm_fn: Optional[Callable] = None,
     query: str = "",
     output_text: str = "",
     sources: str = "",
@@ -213,13 +213,13 @@ def compute_shapley_values(
         n_perms = max(5, sum(1 for _ in simulation_results) // max(1, N))
         perms = [tuple(random.sample(agents, N)) for _ in range(n_perms)]
 
-    marginals = {a: [] for a in agents}
-    per_clf_marginals = {}
+    marginals: dict[str, list[float]] = {a: [] for a in agents}
+    per_clf_marginals: dict[str, dict[str, list[float]]] = {}
 
     for perm in perms:
         coalition = frozenset()
         v_prev = 0.0
-        prev_clf_scores = {}
+        prev_clf_scores: dict[str, float] = {}
 
         for agent in perm:
             coalition = coalition | {agent}
@@ -251,7 +251,7 @@ def compute_shapley_values(
             cis[k].ci_low /= total
             cis[k].ci_high /= total
 
-    per_clf_shapley = {}
+    per_clf_shapley: dict[str, dict[str, float]] = {}
     for clf_name, agent_marginals in per_clf_marginals.items():
         per_clf_shapley[clf_name] = {}
         for agent, m in agent_marginals.items():

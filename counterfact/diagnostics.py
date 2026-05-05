@@ -341,7 +341,7 @@ def run_full_diagnostic(
             raw_deltas = []
             for r in sim_results:
                 if r.perturbation and r.perturbation.agent == agent and r.perturbation.strategy == "ablate":
-                    ff_score = 0
+                    ff_score = 0.0
                     for clf_name in gap_clf_names:
                         for c in r.classifier_results:
                             if c.name == clf_name:

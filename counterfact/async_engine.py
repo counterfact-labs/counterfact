@@ -99,6 +99,8 @@ async def run_monte_carlo_async(
     def _sync_llm(prompt: str, temperature: float) -> str:
         """Synchronous wrapper around the async LLM for use in run_coalition."""
         loop = asyncio.get_event_loop()
+        if llm_fn_async is None:
+            return ""
         coro = llm_fn_async(prompt, temperature)
         return loop.run_until_complete(coro) if not loop.is_running() else ""
 

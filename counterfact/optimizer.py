@@ -91,14 +91,14 @@ class SearchSpace:
 
     def sample_random(self, rng: random.Random) -> dict:
         """Sample a random configuration from the search space."""
-        config = {}
+        config: dict[str, Any] = {}
         for p in self.params:
             if p.param_type == "categorical":
-                config[p.name] = rng.choice(p.values)
+                config[p.name] = rng.choice(p.values or [])
             elif p.param_type == "float":
-                config[p.name] = rng.uniform(p.min_value, p.max_value)
+                config[p.name] = rng.uniform(p.min_value or 0.0, p.max_value or 1.0)
             elif p.param_type == "int":
-                config[p.name] = rng.randint(int(p.min_value), int(p.max_value))
+                config[p.name] = rng.randint(int(p.min_value or 0), int(p.max_value or 100))
         return config
 
     def __len__(self) -> int:
@@ -177,7 +177,7 @@ def _try_vizier(
     Returns None if Vizier is not installed.
     """
     try:
-        from vizier.service import clients
+        from vizier.service import clients  # type: ignore[import-untyped]
         from vizier.service import pyvizier as vz
     except ImportError:
         return None
@@ -187,15 +187,15 @@ def _try_vizier(
     for p in space.params:
         if p.param_type == "categorical":
             problem.search_space.root.add_categorical_param(
-                p.name, feasible_values=[str(v) for v in p.values],
+                p.name, feasible_values=[str(v) for v in (p.values or [])],
             )
         elif p.param_type == "float":
             problem.search_space.root.add_float_param(
-                p.name, min_value=p.min_value, max_value=p.max_value,
+                p.name, min_value=p.min_value or 0.0, max_value=p.max_value or 1.0,
             )
         elif p.param_type == "int":
             problem.search_space.root.add_int_param(
-                p.name, min_value=int(p.min_value), max_value=int(p.max_value),
+                p.name, min_value=int(p.min_value or 0), max_value=int(p.max_value or 100),
             )
 
     # Single objective: maximize quality
@@ -216,7 +216,7 @@ def _try_vizier(
     for i in range(num_trials):
         suggestions = study_client.suggest(count=1)
         for suggestion in suggestions:
-            config = {}
+            config: dict[str, Any] = {}
             for p in space.params:
                 raw = suggestion.parameters[p.name]
                 if p.param_type == "int":

@@ -111,7 +111,8 @@ def _make_anthropic_caller(api_key: str, console: Console):
             temperature=temperature,
             messages=[{"role": "user", "content": prompt}],
         )
-        return response.content[0].text
+        block = response.content[0]
+        return getattr(block, "text", str(block))
 
     return caller
 
@@ -138,7 +139,7 @@ def _make_google_caller(api_key: str, console: Console):
                 max_output_tokens=2000,
             ),
         )
-        return response.text
+        return response.text or ""
 
     return caller
 

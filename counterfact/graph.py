@@ -290,10 +290,7 @@ class CounterfactualGraph:
 
         # Add conditional edges
         for cond in recipe.conditional_edges:
-            kwargs = {}
-            if cond.path_map is not None:
-                kwargs["path_map"] = cond.path_map
-            new_graph.add_conditional_edges(cond.source, cond.path, **kwargs)
+            new_graph.add_conditional_edges(cond.source, cond.path, cond.path_map)  # type: ignore[arg-type]
 
         # Set entry/finish points
         if recipe.entry_point:
@@ -503,15 +500,15 @@ class StateGraph(_LangGraphStateGraph):
                 self._cf_recipe.node_kwargs[name] = {}
         return self
 
-    def add_edge(self, source: str, target: str, **kwargs) -> "StateGraph":
+    def add_edge(self, source: str, target: str, **kwargs) -> "StateGraph":  # type: ignore[override]
         """Add an edge — records it in the build recipe."""
         super().add_edge(source, target, **kwargs)
         self._cf_recipe.edges.append(_EdgeDef(source=source, target=target))
         return self
 
-    def add_conditional_edges(
+    def add_conditional_edges(  # type: ignore[override]
         self, source: str, path: Callable, path_map: Any = None, **kwargs
-    ) -> "StateGraph":
+    ) -> "StateGraph":  # type: ignore[override]
         """Add conditional edges — records them in the build recipe."""
         call_kwargs = kwargs.copy()
         if path_map is not None:
