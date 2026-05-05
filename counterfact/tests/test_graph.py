@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from unittest.mock import patch
 
@@ -61,7 +62,7 @@ def test_counterfactual_graph_stream():
     assert len(chunks) > 0
     assert chunks[-1] == {"agent": {"k": 2}}
 
-import asyncio
+
 
 def test_counterfactual_graph_ainvoke():
     graph = StateGraph(dict)
