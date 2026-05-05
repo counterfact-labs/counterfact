@@ -209,66 +209,86 @@ def completeness_classifier(query: str, output: str, sources: str) -> Classifier
     return ClassifierResult(name="completeness", score=score, reasoning=f"Output contains {word_count} words.")
 
 
-def answer_relevance_classifier(query: str, output: str, sources: str) -> ClassifierResult:
-    """Does the output actually answer the specific question asked?
+def make_llm_classifiers(client):
+    """Factory to create LLM-backed classifiers for diagnostic simulation."""
 
-    For "What is the surface temperature of Venus?", a good answer must
-    contain a specific temperature value for Venus. Vague statements
-    like "likely extremely high" are insufficient.
-    """
-    output_lower = output.lower()
+    def answer_relevance_classifier(query: str, output: str, sources: str) -> ClassifierResult:
+        """Use Claude to score how specifically the output answers the query."""
+        if not output or "No relevant information" in output:
+            return ClassifierResult(name="answer_relevance", score=0.1, reasoning="Output produced no answer.", weight=1.5)
+            
+        if client is None:
+            # Deterministic fallback if API key is missing
+            output_lower = output.lower()
+            import re
+            has_specific_temp = bool(re.search(r'\d+\s*°?[CFK]', output))
+            if has_specific_temp and "venus" in output_lower: return ClassifierResult(name="answer_relevance", score=0.9, reasoning="fallback")
+            elif "temperature" in output_lower and "high" in output_lower: return ClassifierResult(name="answer_relevance", score=0.3, reasoning="fallback", weight=1.5)
+            elif "temperature" in output_lower: return ClassifierResult(name="answer_relevance", score=0.2, reasoning="fallback", weight=1.5)
+            else: return ClassifierResult(name="answer_relevance", score=0.1, reasoning="fallback", weight=1.5)
 
-    import re
-    has_specific_temp = bool(re.search(r'\d+\s*°?[CFK]', output))
-    mentions_venus_temp = has_specific_temp and "venus" in output_lower
-    mentions_temperature = "temperature" in output_lower
+        prompt = (
+            f"Query: {query}\n"
+            f"Output: {output}\n\n"
+            f"Does the output specifically answer the query? If the query asks for a specific value (like temperature), "
+            f"does the output provide that exact value? Vague statements like 'extremely high' are insufficient and should score low.\n"
+            f"Score 0.0 to 1.0.\n"
+            f"Respond with ONLY valid JSON: {{\"score\": 0.0-1.0, \"reasoning\": \"brief explanation\"}}"
+        )
+        try:
+            response = client.messages.create(
+                model="claude-3-haiku-20240307", max_tokens=150, temperature=0.0,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            import json, re
+            match = re.search(r'```(?:json)?(.*?)```', response.content[0].text, re.DOTALL)
+            text = match.group(1) if match else response.content[0].text
+            parsed = json.loads(text.strip())
+            return ClassifierResult(
+                name="answer_relevance", score=float(parsed.get("score", 0.5)), 
+                reasoning=parsed.get("reasoning", "Parsed"), weight=1.5
+            )
+        except Exception as e:
+            return ClassifierResult(name="answer_relevance", score=0.5, reasoning=f"LLM Error: {str(e)}", weight=1.5)
 
-    if mentions_venus_temp:
-        return ClassifierResult(
-            name="answer_relevance", score=0.9,
-            reasoning="Output provides a specific temperature value for Venus.",
-        )
-    elif mentions_temperature and ("high" in output_lower or "hot" in output_lower):
-        return ClassifierResult(
-            name="answer_relevance", score=0.3,
-            reasoning="Mentions temperature but only vaguely ('extremely high'). No specific value.",
-            weight=1.5,
-        )
-    elif mentions_temperature:
-        return ClassifierResult(
-            name="answer_relevance", score=0.2,
-            reasoning="Output mentions temperature but provides no useful information.",
-            weight=1.5,
-        )
-    else:
-        return ClassifierResult(
-            name="answer_relevance", score=0.1,
-            reasoning="Output does not address the temperature question at all.",
-            weight=1.5,
-        )
+    def source_coverage_classifier(query: str, output: str, sources: str) -> ClassifierResult:
+        """Use Claude to score Grounding (is the output hallucinated?)."""
+        if not output:
+            return ClassifierResult(name="source_coverage", score=0.1, reasoning="No output")
+            
+        if client is None:
+            # Deterministic fallback if API key is missing
+            import re
+            has_temp_data = bool(re.search(r'\d+\s*°?[CFK]', output))
+            if has_temp_data and "surface" in output.lower(): return ClassifierResult(name="source_coverage", score=0.9, reasoning="fallback")
+            elif "atmosphere" in output.lower(): return ClassifierResult(name="source_coverage", score=0.3, reasoning="fallback")
+            else: return ClassifierResult(name="source_coverage", score=0.1, reasoning="fallback")
 
-
-def source_coverage_classifier(query: str, output: str, sources: str) -> ClassifierResult:
-    """Do the retrieved sources contain the information needed to answer?"""
-    import re
-    has_temp_data = bool(re.search(r'\d+\s*°?[CFK]', output))
-    mentions_surface = "surface" in output.lower()
-
-    if has_temp_data and mentions_surface:
-        return ClassifierResult(
-            name="source_coverage", score=0.9,
-            reasoning="Sources contain specific temperature data relevant to the query.",
+        prompt = (
+            f"Sources: {sources}\n"
+            f"Output: {output}\n\n"
+            f"Is the output completely grounded in the provided sources? "
+            f"Score 1.0 if every claim is backed by the sources OR if the output correctly states the information is not found in the sources. "
+            f"Score 0.0 if the output fabricates or hallucinates specific information not present in the sources.\n"
+            f"Respond with ONLY valid JSON: {{\"score\": 0.0-1.0, \"reasoning\": \"brief explanation\"}}"
         )
-    elif "atmosphere" in output.lower() or "carbon dioxide" in output.lower():
-        return ClassifierResult(
-            name="source_coverage", score=0.3,
-            reasoning="Sources discuss Venus's atmosphere but lack temperature measurements.",
-        )
-    else:
-        return ClassifierResult(
-            name="source_coverage", score=0.1,
-            reasoning="Sources contain no information relevant to the query.",
-        )
+        try:
+            response = client.messages.create(
+                model="claude-3-haiku-20240307", max_tokens=150, temperature=0.0,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            import json, re
+            match = re.search(r'```(?:json)?(.*?)```', response.content[0].text, re.DOTALL)
+            text = match.group(1) if match else response.content[0].text
+            parsed = json.loads(text.strip())
+            return ClassifierResult(
+                name="source_coverage", score=float(parsed.get("score", 0.5)), 
+                reasoning=parsed.get("reasoning", "Parsed")
+            )
+        except Exception as e:
+            return ClassifierResult(name="source_coverage", score=0.5, reasoning=f"LLM Error: {str(e)}")
+            
+    return answer_relevance_classifier, source_coverage_classifier
 
 
 # ─── Main ────────────────────────────────────────────────────────────────
@@ -293,6 +313,8 @@ def main():
         print(f"\n  ✓ Using Claude for synthesis (non-deterministic → meaningful CIs)")
     except (SystemExit, Exception) as e:
         client = None
+        import traceback
+        traceback.print_exc()
         print(f"\n  ⚠ LLM unavailable ({type(e).__name__}), using deterministic summarizer")
         print(f"    (Set ANTHROPIC_API_KEY for LLM-based diagnosis with real CIs)")
 
@@ -300,10 +322,11 @@ def main():
     pipeline = build_pipeline(client)
 
     # Set up custom classifiers
+    ans_rel, src_cov = make_llm_classifiers(client)
     registry = ClassifierRegistry()
     registry.register(completeness_classifier, "demo")
-    registry.register(answer_relevance_classifier, "demo")
-    registry.register(source_coverage_classifier, "demo")
+    registry.register(ans_rel, "demo")
+    registry.register(src_cov, "demo")
 
     # Define input
     input_state: PipelineState = {
@@ -374,9 +397,11 @@ def main():
 
     print(f"\nShapley Values (marginal contribution of each agent):")
     for agent, value in sorted(report.shapley_values.items(), key=lambda x: abs(x[1]), reverse=True):
-        bar_width = int(abs(value) * 40)
-        direction = "◄" if value < 0 else "►"
-        bar = "█" * bar_width
+        bar_width = int(abs(value) * 20)
+        if value < 0:
+            bar = " " * (20 - bar_width) + "█" * bar_width + "│"
+        else:
+            bar = " " * 20 + "│" + "█" * bar_width
         sign = "+" if value >= 0 else ""
 
         # Show confidence interval if available
@@ -386,15 +411,20 @@ def main():
         else:
             ci_str = ""
 
-        print(f"  {agent:>15s}: {sign}{value:.3f}  {direction}{bar}{ci_str}")
+        print(f"  {agent:>15s}: {sign}{value:.3f}  {bar}{ci_str}")
 
     if report.per_classifier_shapley:
         print(f"\nPer-Classifier Shapley Breakdown:")
         for clf_name, agent_values in report.per_classifier_shapley.items():
             print(f"\n  {clf_name}:")
             for agent, value in sorted(agent_values.items(), key=lambda x: abs(x[1]), reverse=True):
+                bar_width = int(abs(value) * 20)
+                if value < 0:
+                    bar = " " * (20 - bar_width) + "█" * bar_width + "│"
+                else:
+                    bar = " " * 20 + "│" + "█" * bar_width
                 sign = "+" if value >= 0 else ""
-                print(f"    {agent:>15s}: {sign}{value:.3f}")
+                print(f"    {agent:>15s}: {sign}{value:.3f}  {bar}")
 
     # ─── Step 5: Show diagnosis ──────────────────────────────────────
     print("\n" + "─" * 72)
@@ -443,224 +473,159 @@ if __name__ == "__main__":
 """
 EXPECTED OUTPUT:
 
-────────────────────────────────────────────────────────────────────────
-STEP 1: BASELINE RUN
-────────────────────────────────────────────────────────────────────────
-
-Query: What is the surface temperature of Venus?
-
-Pipeline Output:
-Based on available knowledge:
-- Venus is the second planet from the Sun.
-- Venus has a thick atmosphere composed mainly of carbon dioxide.
-- The atmospheric pressure on Venus is 92 times that of Earth.
-- Venus rotates in the opposite direction to most planets.
-
-Given Venus's thick CO2 atmosphere and proximity to the Sun, its surface temperature is likely extremely high.
-
-Validation: PASS: All 4 source facts are cited in the summary.
-
-Execution Trace (3 steps):
-  [retriever] pass (0ms)
-  [summarizer] pass (0ms)
-  [fact_checker] pass (0ms)
-
-────────────────────────────────────────────────────────────────────────
-STEP 2: COUNTERFACTUAL DIAGNOSIS
-Running Shapley attribution with real pipeline re-execution...
-────────────────────────────────────────────────────────────────────────
-
-────────────────────────────────────────────────────────────────────────
-STEP 3: MONTE CARLO SIMULATIONS (ablate one agent at a time)
-────────────────────────────────────────────────────────────────────────
-
-  Simulation #0: BASELINE (all agents active)
-  Quality Score: 0.500
-  Output: Based on available knowledge: - Venus is the second planet from the Sun. - Venus...
-            completeness: 1.00 ████████████████████  Output contains 63 words.
-        answer_relevance: 0.30 ██████░░░░░░░░░░░░░░  Mentions temperature but only vaguely ('extremely high'
-         source_coverage: 0.30 ██████░░░░░░░░░░░░░░  Sources discuss Venus's atmosphere but lack temperature
-
-  Simulation #1: BASELINE (all agents active)
-  Quality Score: 0.500
-  Output: Based on available knowledge: - Venus is the second planet from the Sun. - Venus...
-            completeness: 1.00 ████████████████████  Output contains 63 words.
-        answer_relevance: 0.30 ██████░░░░░░░░░░░░░░  Mentions temperature but only vaguely ('extremely high'
-         source_coverage: 0.30 ██████░░░░░░░░░░░░░░  Sources discuss Venus's atmosphere but lack temperature
-
-  Simulation #2: BASELINE (all agents active)
-  Quality Score: 0.500
-  Output: Based on available knowledge: - Venus is the second planet from the Sun. - Venus...
-            completeness: 1.00 ████████████████████  Output contains 63 words.
-        answer_relevance: 0.30 ██████░░░░░░░░░░░░░░  Mentions temperature but only vaguely ('extremely high'
-         source_coverage: 0.30 ██████░░░░░░░░░░░░░░  Sources discuss Venus's atmosphere but lack temperature
-
-  Simulation #3: ABLATE fact_checker, retriever
-  Quality Score: 0.129
-  Output: No relevant information found....
-            completeness: 0.20 ████░░░░░░░░░░░░░░░░  Pipeline produced no answer.
-        answer_relevance: 0.10 ██░░░░░░░░░░░░░░░░░░  Output does not address the temperature question at all
-         source_coverage: 0.10 ██░░░░░░░░░░░░░░░░░░  Sources contain no information relevant to the query.
-
-  Simulation #4: ABLATE retriever
-  Quality Score: 0.129
-  Output: No relevant information found....
-            completeness: 0.20 ████░░░░░░░░░░░░░░░░  Pipeline produced no answer.
-        answer_relevance: 0.10 ██░░░░░░░░░░░░░░░░░░  Output does not address the temperature question at all
-         source_coverage: 0.10 ██░░░░░░░░░░░░░░░░░░  Sources contain no information relevant to the query.
-
-  Simulation #5: ABLATE summarizer
-  Quality Score: 0.100
-  Output: ...
-            completeness: 0.10 ██░░░░░░░░░░░░░░░░░░  Output is empty or too short.
-        answer_relevance: 0.10 ██░░░░░░░░░░░░░░░░░░  Output does not address the temperature question at all
-         source_coverage: 0.10 ██░░░░░░░░░░░░░░░░░░  Sources contain no information relevant to the query.
-
-  Simulation #6: ABLATE fact_checker
-  Quality Score: 0.500
-  Output: Based on available knowledge: - Venus is the second planet from the Sun. - Venus...
-            completeness: 1.00 ████████████████████  Output contains 63 words.
-        answer_relevance: 0.30 ██████░░░░░░░░░░░░░░  Mentions temperature but only vaguely ('extremely high'
-         source_coverage: 0.30 ██████░░░░░░░░░░░░░░  Sources discuss Venus's atmosphere but lack temperature
-
-  Simulation #7: ABLATE fact_checker, summarizer
-  Quality Score: 0.100
-  Output: ...
-            completeness: 0.10 ██░░░░░░░░░░░░░░░░░░  Output is empty or too short.
-        answer_relevance: 0.10 ██░░░░░░░░░░░░░░░░░░  Output does not address the temperature question at all
-         source_coverage: 0.10 ██░░░░░░░░░░░░░░░░░░  Sources contain no information relevant to the query.
-
-  Simulation #8: ABLATE retriever, summarizer
-  Quality Score: 0.100
-  Output: ...
-            completeness: 0.10 ██░░░░░░░░░░░░░░░░░░  Output is empty or too short.
-        answer_relevance: 0.10 ██░░░░░░░░░░░░░░░░░░  Output does not address the temperature question at all
-         source_coverage: 0.10 ██░░░░░░░░░░░░░░░░░░  Sources contain no information relevant to the query.
-
-────────────────────────────────────────────────────────────────────────
-STEP 4: SHAPLEY ATTRIBUTION (with bootstrap confidence intervals)
-────────────────────────────────────────────────────────────────────────
-
-Baseline Quality: 0.500
-Attribution Method: shapley
-
-Shapley Values (marginal contribution of each agent):
-       summarizer: +0.495  ►███████████████████  95% CI: [+0.248, +0.710]  (n=6)
-        retriever: +0.438  ►█████████████████  95% CI: [+0.190, +0.652]  (n=6)
-     fact_checker: +0.067  ►██  95% CI: [+0.000, +0.133]  (n=6)
-
-Per-Classifier Shapley Breakdown:
-
-  completeness:
-         summarizer: +0.533
-          retriever: +0.433
-       fact_checker: +0.033
-
-  answer_relevance:
-          retriever: +0.444
-         summarizer: +0.444
-       fact_checker: +0.111
-
-  source_coverage:
-          retriever: +0.444
-         summarizer: +0.444
-       fact_checker: +0.111
-
-────────────────────────────────────────────────────────────────────────
-STEP 5: DIAGNOSIS
-────────────────────────────────────────────────────────────────────────
-
-Failure Type: local
-Confidence: 56%
-Description: The failure is primarily attributable to the summarizer agent.
-Confidence Basis: Based on 9 simulations. Confidence derived from bootstrap CI separation between top two agents. Confidence = 56%
-
-Evidence:
-  • Dominant Shapley value: summarizer = 0.495
-  • Perturbing summarizer changes quality by 49.5%
-  • Failing classifiers: answer_relevance, source_coverage
-
-Recommendations:
-  1. [modify_agent] The summarizer is the primary failure source. Enhance with better validation and error handling.
-     Target: summarizer
-
-Simulation Summary:
-  Total simulations: 9
-  Baseline runs: 3
-  Perturbation runs: 6
-  Agents analyzed: retriever, summarizer, fact_checker
-  Classifiers used: completeness, answer_relevance, source_coverage
-
-========================================================================
-  KEY INSIGHT: Counterfact computes Shapley values by actually
-  re-running the pipeline with agents ablated. The LLM-based
-  summarizer introduces natural variance, giving meaningful
-  bootstrap confidence intervals on the attribution scores.
-========================
-
-────────────────────────────────────────────────────────────────────────
-STEP 6: STATIC EVALUATION (counterfact eval)
-────────────────────────────────────────────────────────────────────────
-
-╭────────────────────╮
-│ counterfact eval ✓ │
-╰─ Ground-truth-free─╯
-
-  Trace: 3 events from trace.json
-  Agents: retriever, summarizer, fact_checker
-  Tiers: 1
-
-                               Evaluation Results                               
-┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Check                 ┃ Severity ┃ Status ┃ Details                          ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ empty_output          │   info   │ ✓ PASS │ Agent 'retriever' produced       │
-│                       │          │        │ non-empty output.                │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ empty_output          │   info   │ ✓ PASS │ Agent 'summarizer' produced      │
-│                       │          │        │ non-empty output.                │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ empty_output          │   info   │ ✓ PASS │ Agent 'fact_checker' produced    │
-│                       │          │        │ non-empty output.                │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ error_status          │   info   │ ✓ PASS │ Agent 'retriever' status: pass   │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ error_status          │   info   │ ✓ PASS │ Agent 'summarizer' status: pass  │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ error_status          │   info   │ ✓ PASS │ Agent 'fact_checker' status:     │
-│                       │          │        │ pass                             │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ schema_violation      │   info   │ ✓ PASS │ Agent 'retriever' output has     │
-│                       │          │        │ keys.                            │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ schema_violation      │   info   │ ✓ PASS │ Agent 'summarizer' output has    │
-│                       │          │        │ keys.                            │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ schema_violation      │   info   │ ✓ PASS │ Agent 'fact_checker' output has  │
-│                       │          │        │ keys.                            │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ latency_anomaly       │   info   │ ✓ PASS │ Agent 'retriever' latency normal │
-│                       │          │        │ (0ms).                           │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ output_length_anomaly │   info   │ ✓ PASS │ Agent 'retriever' output length  │
-│                       │          │        │ normal (7 chars).                │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ output_length_anomaly │   info   │ ✓ PASS │ Agent 'summarizer' output length │
-│                       │          │        │ normal (600 chars).              │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ output_length_anomaly │   info   │ ✓ PASS │ Agent 'fact_checker' output      │
-│                       │          │        │ length normal (350 chars).       │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ duplicate_agent       │   info   │ ✓ PASS │ Agent 'retriever' ran 1 time(s). │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ duplicate_agent       │   info   │ ✓ PASS │ Agent 'summarizer' ran 1         │
-│                       │          │        │ time(s).                         │
-├───────────────────────┼──────────┼────────┼──────────────────────────────────┤
-│ duplicate_agent       │   info   │ ✓ PASS │ Agent 'fact_checker' ran 1       │
-│                       │          │        │ time(s).                         │
-└───────────────────────┴──────────┴────────┴──────────────────────────────────┘
-╭────────────────────────────────── Summary ───────────────────────────────────╮
-│ Passed: 16/16  |  Score: 100.0%                                              │
-╰──────────────────────────────────────────────────────────────────────────────╯
-
+    ========================================================================
+      COUNTERFACT QUICKSTART
+      Diagnosing a retrieval failure in a 3-agent RAG pipeline
+    ========================================================================
+    
+      ✓ Using Claude for synthesis (non-deterministic → meaningful CIs)
+    
+    ────────────────────────────────────────────────────────────────────────
+    STEP 1: BASELINE RUN
+    ────────────────────────────────────────────────────────────────────────
+    
+    Query: What is the surface temperature of Venus?
+    
+    Pipeline Output:
+    Given Venus's thick CO2 atmosphere and proximity to the Sun, its surface temperature is likely extremely high.
+    
+    Validation: PARTIAL: 0/4 facts cited.
+    
+    Execution Trace (3 steps):
+      [retriever] pass (0ms)
+      [summarizer] pass (0ms)
+      [fact_checker] pass (0ms)
+    
+    ────────────────────────────────────────────────────────────────────────
+    STEP 2: COUNTERFACTUAL DIAGNOSIS
+    Running Shapley attribution with real pipeline re-execution...
+    ────────────────────────────────────────────────────────────────────────
+    
+    ────────────────────────────────────────────────────────────────────────
+    STEP 3: MONTE CARLO SIMULATIONS (ablate one agent at a time)
+    ────────────────────────────────────────────────────────────────────────
+    
+      Simulation #0: BASELINE (all agents active)
+      Quality Score: 0.248
+      Output: Given Venus's thick CO2 atmosphere and proximity to the Sun, its surface tempera...
+                completeness: 0.57 ███████████░░░░░░░░░  Output contains 17 words.
+            answer_relevance: 0.20 ████░░░░░░░░░░░░░░░░  Mentions temperature vaguely
+             source_coverage: 0.00 ░░░░░░░░░░░░░░░░░░░░  Hallucinates temperature not in sources
+    
+      Simulation #1: BASELINE (all agents active)
+      Quality Score: 0.248
+      Output: Given Venus's thick CO2 atmosphere and proximity to the Sun, its surface tempera...
+                completeness: 0.57 ███████████░░░░░░░░░  Output contains 17 words.
+            answer_relevance: 0.20 ████░░░░░░░░░░░░░░░░  Mentions temperature vaguely
+             source_coverage: 0.00 ░░░░░░░░░░░░░░░░░░░░  Hallucinates temperature not in sources
+    
+      Simulation #2: BASELINE (all agents active)
+      Quality Score: 0.248
+      Output: Given Venus's thick CO2 atmosphere and proximity to the Sun, its surface tempera...
+                completeness: 0.57 ███████████░░░░░░░░░  Output contains 17 words.
+            answer_relevance: 0.20 ████░░░░░░░░░░░░░░░░  Mentions temperature vaguely
+             source_coverage: 0.00 ░░░░░░░░░░░░░░░░░░░░  Hallucinates temperature not in sources
+    
+      Simulation #3: ABLATE fact_checker, retriever
+      Quality Score: 0.386
+      Output: No relevant information found....
+                completeness: 0.20 ████░░░░░░░░░░░░░░░░  Pipeline produced no answer.
+            answer_relevance: 0.10 ██░░░░░░░░░░░░░░░░░░  Output produced no answer.
+             source_coverage: 1.00 ████████████████████  Correctly states info not found
+    
+      Simulation #4: ABLATE retriever
+      Quality Score: 0.386
+      Output: No relevant information found....
+                completeness: 0.20 ████░░░░░░░░░░░░░░░░  Pipeline produced no answer.
+            answer_relevance: 0.10 ██░░░░░░░░░░░░░░░░░░  Output produced no answer.
+             source_coverage: 1.00 ████████████████████  Correctly states info not found
+    
+      Simulation #5: ABLATE fact_checker
+      Quality Score: 0.248
+      Output: Given Venus's thick CO2 atmosphere and proximity to the Sun, its surface tempera...
+                completeness: 0.57 ███████████░░░░░░░░░  Output contains 17 words.
+            answer_relevance: 0.20 ████░░░░░░░░░░░░░░░░  Mentions temperature vaguely
+             source_coverage: 0.00 ░░░░░░░░░░░░░░░░░░░░  Hallucinates temperature not in sources
+    
+      Simulation #6: ABLATE fact_checker, summarizer
+      Quality Score: 0.100
+      Output: ...
+                completeness: 0.10 ██░░░░░░░░░░░░░░░░░░  Output is empty or too short.
+            answer_relevance: 0.10 ██░░░░░░░░░░░░░░░░░░  Output produced no answer.
+             source_coverage: 0.10 ██░░░░░░░░░░░░░░░░░░  No output
+    
+      Simulation #7: ABLATE retriever, summarizer
+      Quality Score: 0.100
+      Output: ...
+                completeness: 0.10 ██░░░░░░░░░░░░░░░░░░  Output is empty or too short.
+            answer_relevance: 0.10 ██░░░░░░░░░░░░░░░░░░  Output produced no answer.
+             source_coverage: 0.10 ██░░░░░░░░░░░░░░░░░░  No output
+    
+      Simulation #8: ABLATE summarizer
+      Quality Score: 0.100
+      Output: ...
+                completeness: 0.10 ██░░░░░░░░░░░░░░░░░░  Output is empty or too short.
+            answer_relevance: 0.10 ██░░░░░░░░░░░░░░░░░░  Output produced no answer.
+             source_coverage: 0.10 ██░░░░░░░░░░░░░░░░░░  No output
+    
+    ────────────────────────────────────────────────────────────────────────
+    STEP 4: SHAPLEY ATTRIBUTION (with bootstrap confidence intervals)
+    ────────────────────────────────────────────────────────────────────────
+    
+    Baseline Quality: 0.248
+    Attribution Method: shapley
+    
+    Shapley Values (marginal contribution of each agent):
+           summarizer: +0.784                      │███████████████  95% CI: [+0.535, +1.032]  (n=6)
+            retriever: -0.112                    ██│  95% CI: [-0.361, +0.157]  (n=6)
+         fact_checker: +0.104                      │██  95% CI: [+0.000, +0.209]  (n=6)
+    
+    Per-Classifier Shapley Breakdown:
+    
+      completeness:
+             summarizer: +0.559                      │███████████
+              retriever: +0.382                      │███████
+           fact_checker: +0.059                      │█
+    
+      answer_relevance:
+              retriever: +0.417                      │████████
+             summarizer: +0.417                      │████████
+           fact_checker: +0.167                      │███
+    
+      source_coverage:
+              retriever: -0.500             █████████│
+             summarizer: +0.464                      │█████████
+           fact_checker: +0.036                      │
+    
+    ────────────────────────────────────────────────────────────────────────
+    STEP 5: DIAGNOSIS
+    ────────────────────────────────────────────────────────────────────────
+    
+    Failure Type: local
+    Confidence: 95%
+    Description: The failure is primarily attributable to the summarizer agent.
+    Confidence Basis: Based on 9 simulations. Confidence derived from bootstrap CI separation between top two agents. Confidence = 95%
+    
+    Evidence:
+      • Dominant Shapley value: summarizer = 0.784
+      • Perturbing summarizer changes quality by 78.4%
+      • Failing classifiers: answer_relevance, source_coverage
+    
+    Recommendations:
+      1. [restructure] Removing the retriever improved quality by +0.14. This agent may be introducing errors or unnecessary complexity.
+         Target: retriever
+    
+    Simulation Summary:
+      Total simulations: 9
+      Baseline runs: 3
+      Perturbation runs: 6
+      Agents analyzed: retriever, summarizer, fact_checker
+      Classifiers used: completeness, answer_relevance, source_coverage
+    
+    ========================================================================
+      KEY INSIGHT: Counterfact computes Shapley values by actually
+      re-running the pipeline with agents ablated. The LLM-based
+      summarizer introduces natural variance, giving meaningful
+      bootstrap confidence intervals on the attribution scores.
+    ========================================================================
 """
