@@ -55,7 +55,7 @@ def call_llm(prompt: str, temperature: float = 0.1) -> str:
     google_key = get_google_api_key()
     if google_key:
         try:
-            from google import genai
+            from google import genai  # type: ignore
             client = genai.Client(api_key=google_key)
             response = client.models.generate_content(
                 model=_GEMINI_MODEL,
@@ -76,7 +76,7 @@ def call_llm(prompt: str, temperature: float = 0.1) -> str:
     anthropic_key = get_anthropic_api_key()
     if anthropic_key:
         try:
-            import anthropic
+            import anthropic  # type: ignore
             anthropic_client = anthropic.Anthropic(api_key=anthropic_key)
             anthropic_response = anthropic_client.messages.create(
                 model=_ANTHROPIC_MODEL,

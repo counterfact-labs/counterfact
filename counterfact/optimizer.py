@@ -177,7 +177,7 @@ def _try_vizier(
     Returns None if Vizier is not installed.
     """
     try:
-        from vizier.service import clients  # type: ignore[import-untyped]
+        from vizier.service import clients  # type: ignore
         from vizier.service import pyvizier as vz
     except ImportError:
         return None

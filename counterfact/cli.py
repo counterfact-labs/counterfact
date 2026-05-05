@@ -94,7 +94,7 @@ def _resolve_llm_fn(provider: Optional[str], console: Console):
 def _make_anthropic_caller(api_key: str, console: Console):
     """Create an LLM caller using Anthropic Claude."""
     try:
-        import anthropic
+        import anthropic  # type: ignore
     except ImportError:
         console.print("[red]Error: 'anthropic' package not installed.[/red]")
         console.print("Install it with: pip install counterfact[anthropic]")
@@ -120,7 +120,7 @@ def _make_anthropic_caller(api_key: str, console: Console):
 def _make_google_caller(api_key: str, console: Console):
     """Create an LLM caller using Google Gemini."""
     try:
-        from google import genai
+        from google import genai  # type: ignore
     except ImportError:
         console.print("[red]Error: 'google-genai' package not installed.[/red]")
         console.print("Install it with: pip install counterfact[google]")
