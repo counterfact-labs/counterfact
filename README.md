@@ -40,7 +40,7 @@ pip install counterfact[anthropic]   # Anthropic Claude support
 pip install counterfact[all]         # All providers + CLI
 ```
 
-> **Try it now**: Run `python examples/quickstart.py` for a self-contained demo with no API keys required.
+> **Try it now**: Run `python examples/quickstart.py` for a self-contained demo. (Set `ANTHROPIC_API_KEY` to see the engine use LLM-based grounding to catch a hallucination, or run without a key to see a graceful deterministic fallback).
 
 ## Quick Start
 
