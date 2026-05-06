@@ -4,6 +4,9 @@ set -e
 # Activate virtual environment if necessary
 # . ../counterfactual-debugger/.venv/bin/activate
 
+# Ensure pytest-asyncio is installed for testing async engine methods
+pip install pytest-asyncio > /dev/null 2>&1 || true
+
 echo "======================================"
 echo "Running Ruff Linter..."
 echo "======================================"
