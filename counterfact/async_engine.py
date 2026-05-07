@@ -9,22 +9,22 @@ the diagnostic process.
 import asyncio
 from typing import Callable, Optional
 
-from counterfact.types import SimulationResult, ConfidenceInterval
-from counterfact.diagnostics import DiagnosticReport, _build_summary, _make_no_failure_classification
-from counterfact.perturbation import generate_perturbations
 from counterfact.attribution import (
-    compute_loo_attribution,
-    is_loo_inconclusive,
-    compute_shapley_values,
-    compute_per_classifier_loo,
     classify_failure,
     compute_bootstrap_ci,
+    compute_loo_attribution,
+    compute_per_classifier_loo,
+    compute_shapley_values,
+    is_loo_inconclusive,
 )
+from counterfact.diagnostics import DiagnosticReport, _build_summary, _make_no_failure_classification
+from counterfact.perturbation import generate_perturbations
 from counterfact.recommendations import (
-    extract_empirical_fixes,
     detect_coverage_gaps,
+    extract_empirical_fixes,
     rank_recommendations,
 )
+from counterfact.types import ConfidenceInterval, SimulationResult
 
 
 async def run_monte_carlo_async(
@@ -42,17 +42,18 @@ async def run_monte_carlo_async(
 ) -> list[SimulationResult]:
     """
     Async version of run_monte_carlo.
-    
+
     Uses asyncio.Semaphore to limit concurrency and asyncio.gather to run
     simulations in parallel.
     """
-    from counterfact.classifiers import ClassifierRegistry, get_default_registry
     import numpy as np
+
+    from counterfact.classifiers import ClassifierRegistry, get_default_registry
 
     reg = registry or get_default_registry()
     results = []
     perturbations = generate_perturbations(trace)
-    
+
     if seed is not None:
         import random
         random.seed(seed)
@@ -61,7 +62,7 @@ async def run_monte_carlo_async(
     # ── Step 1: Baseline runs (Sync, few runs, fast)
     baseline_runs = max(3, num_simulations // 10)
     sim_id = 0
-    
+
     for i in range(baseline_runs):
         clf_results = reg.run_all(query, output_text, sources, domain)
         quality = ClassifierRegistry.aggregate_quality(clf_results)
@@ -98,11 +99,12 @@ async def run_monte_carlo_async(
 
     def _sync_llm(prompt: str, temperature: float) -> str:
         """Synchronous wrapper around the async LLM for use in run_coalition."""
-        loop = asyncio.get_event_loop()
         if llm_fn_async is None:
             return ""
-        coro = llm_fn_async(prompt, temperature)
-        return loop.run_until_complete(coro) if not loop.is_running() else ""
+        # In an async context the loop is always running, so we cannot use
+        # run_until_complete(). The async simulations are handled directly
+        # in _run_sim via await instead.
+        return ""
 
     async def _run_sim(pert, s_id):
         async with sem:
@@ -184,7 +186,7 @@ async def run_monte_carlo_async(
     if tasks:
         pert_results = await asyncio.gather(*tasks)
         results.extend(pert_results)
-        
+
     # Sort results by ID to maintain deterministic order
     results.sort(key=lambda r: r.simulation_id)
     return results
@@ -207,7 +209,7 @@ async def run_full_diagnostic_async(
 ) -> DiagnosticReport:
     """Async orchestrator. Steps 2-6 are mostly CPU-bound so they run synchronously after sims."""
     import numpy as np
-    
+
     # Run async MC
     sim_results = await run_monte_carlo_async(
         trace, query, output_text, sources, domain,

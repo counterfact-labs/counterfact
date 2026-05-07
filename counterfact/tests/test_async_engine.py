@@ -1,5 +1,7 @@
 import pytest
-from counterfact.async_engine import run_monte_carlo_async, run_full_diagnostic_async
+
+from counterfact.async_engine import run_full_diagnostic_async, run_monte_carlo_async
+
 
 @pytest.mark.asyncio
 async def test_run_monte_carlo_async():
@@ -8,19 +10,19 @@ async def test_run_monte_carlo_async():
         def run_all(self, *args, **kwargs):
             from counterfact.types import ClassifierResult
             return [ClassifierResult(name="factuality", score=0.8, reasoning="")]
-            
+
         @staticmethod
         def aggregate_quality(results):
             return 0.8
-            
+
     async def mock_llm_async(prompt, temp):
         return "mocked async output"
-        
+
     trace = [
         {"node": "retriever", "output": "doc"},
         {"node": "synthesizer", "output": "text"}
     ]
-    
+
     # Run async monte carlo
     results = await run_monte_carlo_async(
         trace=trace,
@@ -33,7 +35,7 @@ async def test_run_monte_carlo_async():
         seed=42,
         max_concurrent_sims=2
     )
-    
+
     assert len(results) == 5
     # The first 3 should be baseline
     assert sum(1 for r in results if r.is_baseline) == 3
@@ -46,14 +48,14 @@ async def test_run_full_diagnostic_async():
         def run_all(self, *args, **kwargs):
             from counterfact.types import ClassifierResult
             return [ClassifierResult(name="factuality", score=0.5, reasoning="")]
-            
+
         @staticmethod
         def aggregate_quality(results):
             return 0.5
-            
+
     async def mock_llm_async(prompt, temp):
         return "mocked async response"
-        
+
     def mock_llm_sync(prompt, temp):
         return '[{"title": "fix", "description": "desc", "intervention_type": "add_agent", "target_agent": null, "estimated_failure_reduction": 0.5, "complexity": "low"}]'
 
@@ -61,7 +63,7 @@ async def test_run_full_diagnostic_async():
         {"node": "retriever", "output": "doc"},
         {"node": "synthesizer", "output": "text"}
     ]
-    
+
     report = await run_full_diagnostic_async(
         trace=trace,
         query="test",
@@ -72,7 +74,7 @@ async def test_run_full_diagnostic_async():
         max_concurrent_sims=2,
         seed=42
     )
-    
+
     assert report.num_simulations == 5
     assert round(report.baseline_quality, 2) == 0.5
     assert report.classification is not None
@@ -83,16 +85,16 @@ async def test_run_full_diagnostic_async_quality_gate():
         def run_all(self, *args, **kwargs):
             from counterfact.types import ClassifierResult
             return [ClassifierResult(name="factuality", score=0.9, reasoning="")]
-            
+
         @staticmethod
         def aggregate_quality(results):
             return 0.9
-            
+
     async def mock_llm_async(prompt, temp):
         return "mocked"
-        
+
     trace = [{"node": "a", "output": "doc"}]
-    
+
     report = await run_full_diagnostic_async(
         trace=trace,
         query="test",
@@ -103,5 +105,5 @@ async def test_run_full_diagnostic_async_quality_gate():
         quality_gate=0.8,
         seed=42
     )
-    
+
     assert report.classification.failure_type == "no_failure"
