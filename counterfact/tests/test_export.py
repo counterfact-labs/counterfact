@@ -1,7 +1,9 @@
 import json
-from counterfact.export import to_json, to_markdown, to_html, _format_ci, _ascii_bar
-from counterfact.types import FailureClassification, Recommendation, ConfidenceInterval, AgentSpec
+
 from counterfact.diagnostics import DiagnosticReport
+from counterfact.export import _ascii_bar, _format_ci, to_html, to_json, to_markdown
+from counterfact.types import AgentSpec, ConfidenceInterval, FailureClassification, Recommendation
+
 
 def get_mock_report():
     return DiagnosticReport(
@@ -51,7 +53,7 @@ def test_to_json(tmp_path):
     data = json.loads(res)
     assert data["query"] == "test query"
     assert data["baseline_quality"] == 0.8
-    
+
     # Test file output
     file_path = tmp_path / "report.json"
     to_json(report, str(file_path))
@@ -62,7 +64,7 @@ def test_format_ci():
     assert _format_ci(ci) == "+0.500 [+0.400, +0.600]"
     assert _format_ci(ci, percentage=True) == "+50.0% [+40.0%, +60.0%]"
     assert _format_ci(None) == "N/A"
-    
+
     ci_empty = ConfidenceInterval(mean=0, ci_low=0, ci_high=0, n_samples=0)
     assert _format_ci(ci_empty) == "N/A"
 
@@ -75,7 +77,7 @@ def test_ascii_bar():
 def test_to_markdown(tmp_path):
     report = get_mock_report()
     md = to_markdown(report)
-    
+
     assert "Counterfact Diagnostic Report" in md
     assert "test query" in md
     assert "rag" in md
@@ -83,7 +85,7 @@ def test_to_markdown(tmp_path):
     assert "agent1" in md
     assert "agent2" in md
     assert "Modify Agent" in md
-    
+
     file_path = tmp_path / "report.md"
     to_markdown(report, str(file_path))
     assert file_path.exists()
@@ -91,11 +93,11 @@ def test_to_markdown(tmp_path):
 def test_to_html(tmp_path):
     report = get_mock_report()
     html = to_html(report)
-    
+
     assert "<!DOCTYPE html>" in html
     assert "<body>" in html
     assert "Counterfact Diagnostic Report" in html
-    
+
     file_path = tmp_path / "report.html"
     to_html(report, str(file_path))
     assert file_path.exists()

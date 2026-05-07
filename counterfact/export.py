@@ -1,5 +1,6 @@
 import json
 from typing import TYPE_CHECKING, Optional
+
 from counterfact.types import ConfidenceInterval
 
 if TYPE_CHECKING:
@@ -18,7 +19,7 @@ def to_json(report: "DiagnosticReport", path: Optional[str] = None) -> str:
 def _format_ci(ci: Optional[ConfidenceInterval], percentage: bool = False) -> str:
     if not ci or ci.n_samples == 0:
         return "N/A"
-    
+
     if percentage:
         return f"{ci.mean*100:+.1f}% [{ci.ci_low*100:+.1f}%, {ci.ci_high*100:+.1f}%]"
     return f"{ci.mean:+.3f} [{ci.ci_low:+.3f}, {ci.ci_high:+.3f}]"
@@ -27,11 +28,11 @@ def _format_ci(ci: Optional[ConfidenceInterval], percentage: bool = False) -> st
 def _ascii_bar(value: float, min_val: float, max_val: float, width: int = 20) -> str:
     if max_val == min_val:
         return "█" * width
-    
+
     # Normalize to 0-1
     norm = (value - min_val) / (max_val - min_val) if max_val > min_val else 0
     norm = max(0.0, min(1.0, norm))
-    
+
     filled = int(norm * width)
     return "█" * filled + "░" * (width - filled)
 
@@ -42,20 +43,23 @@ def to_markdown(report: "DiagnosticReport", path: Optional[str] = None) -> str:
     lines.append("# Counterfact Diagnostic Report")
     lines.append(f"**Query**: `{report.query}`")
     lines.append(f"**Domain**: `{report.domain}`")
-    
+
     bq = report.baseline_quality
     bq_ci_str = _format_ci(report.baseline_quality_ci) if getattr(report, "baseline_quality_ci", None) else f"{bq:.3f}"
     lines.append(f"**Baseline Quality**: {bq_ci_str}")
-    lines.append(f"**Failure Type**: `{report.classification.failure_type}` (Confidence: {report.classification.confidence:.0%})")
-    
+    lines.append(
+        f"**Failure Type**: `{report.classification.failure_type}` "
+        f"(Confidence: {report.classification.confidence:.0%})"
+    )
+
     lines.append("\n## Evidence")
     for ev in report.classification.evidence:
         lines.append(f"- {ev}")
-        
+
     lines.append("\n## Shapley Attribution Estimates")
     lines.append("Agent | Shapley Value | 95% CI | Impact")
     lines.append("---|---|---|---")
-    
+
     # Determine min/max for ascii bars
     vals = list(report.shapley_values.values())
     if vals:
@@ -65,7 +69,7 @@ def to_markdown(report: "DiagnosticReport", path: Optional[str] = None) -> str:
             ci_str = _format_ci(ci)
             bar = _ascii_bar(val, min(0, min_v), max(0, max_v))
             lines.append(f"**{agent}** | {val:+.3f} | {ci_str} | `{bar}`")
-            
+
     lines.append("\n## Recommended Fixes")
     if not report.recommendations:
         lines.append("No fixes recommended.")
@@ -76,9 +80,9 @@ def to_markdown(report: "DiagnosticReport", path: Optional[str] = None) -> str:
         lines.append(f"**Estimated Improvement**: {rec.estimated_failure_reduction*100:+.1f}%")
         lines.append(f"**Confidence**: `{rec.measurement_confidence}`")
         if rec.agent_spec:
-            lines.append("\n**Agent Specification**:")
-            lines.append("```json\n{json.dumps(rec.agent_spec.to_dict(), indent=2)}\n```")
-            
+            spec_json = json.dumps(rec.agent_spec.to_dict(), indent=2)
+            lines.append(f"\n**Agent Specification**:\n```json\n{spec_json}\n```")
+
     res = "\n".join(lines)
     if path:
         with open(path, "w") as f:
@@ -89,10 +93,10 @@ def to_markdown(report: "DiagnosticReport", path: Optional[str] = None) -> str:
 def to_html(report: "DiagnosticReport", path: Optional[str] = None) -> str:
     """Generate a minimal, self-contained HTML report."""
     import html
-    
+
     md = to_markdown(report)
     escaped_md = html.escape(md)
-    
+
     # Using a simple vanilla HTML template with minimal CSS
     html_out = f"""<!DOCTYPE html>
 <html>
@@ -158,5 +162,5 @@ def to_html(report: "DiagnosticReport", path: Optional[str] = None) -> str:
     if path:
         with open(path, "w") as f:
             f.write(html_out)
-            
+
     return html_out
