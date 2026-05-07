@@ -13,16 +13,43 @@ authors = [
     {name = "Arya Tafvizi", email = "arya@counterfact.ai"}
 ]
 keywords = ["llm", "agents", "langgraph", "debugging", "shapley", "counterfactual"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Debuggers",
+    "Topic :: Software Development :: Testing",
+]
 dependencies = [
     "langgraph",
     "numpy>=1.20.0"
 ]
+
+[project.urls]
+Homepage = "https://github.com/counterfact-labs/counterfact"
+Repository = "https://github.com/counterfact-labs/counterfact"
+Issues = "https://github.com/counterfact-labs/counterfact/issues"
+Changelog = "https://github.com/counterfact-labs/counterfact/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 google = ["google-genai"]
 anthropic = ["anthropic"]
 cli = ["rich>=13.0.0"]
 all = ["google-genai", "anthropic", "rich>=13.0.0"]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+]
 
 [project.scripts]
 counterfact = "counterfact.cli:main"
@@ -32,3 +59,27 @@ packages = ["counterfact"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+# Long lines are expected in test assertions and LLM prompt templates
+"counterfact/tests/*" = ["E501"]
+"counterfact/classifiers.py" = ["E501"]
+"counterfact/prompt_analysis.py" = ["E501"]
+"counterfact/async_engine.py" = ["E501"]
+"counterfact/cli.py" = ["E501"]
+"counterfact/discovery.py" = ["E501"]
+"counterfact/recommendations.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+
