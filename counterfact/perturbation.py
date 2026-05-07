@@ -17,7 +17,7 @@ replaced, getting real outputs that we can then score.
 Dependencies: types, classifiers (for quality scoring)
 """
 
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Optional
 
 from counterfact.types import (
     Perturbation,
@@ -223,6 +223,7 @@ def run_monte_carlo(
 
     if seed is not None:
         import random
+
         import numpy as np
         random.seed(seed)
         np.random.seed(seed)
@@ -294,7 +295,7 @@ def run_monte_carlo(
     for coalition in coalitions_to_run:
         ablated_agents = sorted(list(set(agents) - coalition))
         agent_str = ", ".join(ablated_agents)
-        
+
         pert = Perturbation(
             agent=agent_str,
             strategy="ablate",

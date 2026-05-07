@@ -19,14 +19,13 @@ Dependencies: types only (LLM function is injected)
 """
 
 import json
-from typing import Callable, Optional, Any
+from typing import Any, Callable, Optional
 
 from counterfact.types import (
     AgentProfile,
-    PerturbationPlan,
     Perturbation,
+    PerturbationPlan,
 )
-
 
 # ═════════════════════════════════════════════════════════════════════════
 # MAIN ENTRY POINT

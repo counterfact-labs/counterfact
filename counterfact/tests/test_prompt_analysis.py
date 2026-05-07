@@ -1,17 +1,18 @@
 from counterfact.prompt_analysis import (
+    _ablate_section,
+    _compute_analysis_confidence,
+    _parse_json_response,
+    analyze_prompt,
+    check_plan_quality,
+    detect_conflicting_sections,
+    detect_dead_sections,
     parse_prompt_sections,
     parse_system_prompt,
-    check_plan_quality,
     run_prompt_section_attribution,
-    detect_dead_sections,
-    detect_conflicting_sections,
-    analyze_prompt,
     score_few_shot_quality,
-    _compute_analysis_confidence,
-    _ablate_section,
-    _parse_json_response
 )
-from counterfact.types import PromptSection, PlanStep
+from counterfact.types import PlanStep, PromptSection
+
 
 def test_parse_prompt_sections_llm():
     def mock_llm(p, t): return '[{"title": "t1", "content": "hello", "category": "instruction"}]'
@@ -39,7 +40,7 @@ def test_check_plan_quality():
     steps = [PlanStep(step_index=1, tool_name="t1", description="d1")]
     secs = [PromptSection(index=0, title="t", content="c", category="methodology", char_start=0, char_end=1)]
     def mock_llm(p, t): return '{"completeness": 1.0, "efficiency": 1.0, "adherence": 1.0}'
-    
+
     res = check_plan_quality(steps, secs, mock_llm)
     assert res.passed is True
     assert res.details["score"] == 1.0
@@ -51,26 +52,26 @@ def test_check_plan_quality_empty():
 
 def test_run_prompt_section_attribution():
     secs = [PromptSection(index=0, title="t", content="c", category="instruction", char_start=0, char_end=1)]
-    
+
     def mock_llm(p, t):
         if "simulating" in p:
             return "ablated out"
         return '{"score": 0.5}'
-        
+
     attr = run_prompt_section_attribution("prompt", secs, "q", "out", mock_llm)
     assert attr[0] == 1.0 # Normalized
 
 def test_ablate_section():
     sec1 = PromptSection(index=0, title="t", content="BBB", category="c", char_start=3, char_end=6)
     assert _ablate_section("AAABBBCCC", sec1) == "AAACCC"
-    
+
     sec2 = PromptSection(index=0, title="t", content="BBB", category="c", char_start=0, char_end=0)
     assert _ablate_section("AAABBBCCC", sec2) == "AAACCC"
 
 def test_detect_dead_sections():
     secs = [PromptSection(index=0, title="t", content="c", category="instruction", char_start=0, char_end=1)]
     def mock_llm(p, t): return '{"verdict": "not_followed"}'
-    
+
     dead = detect_dead_sections(secs, ["out1"], mock_llm)
     assert dead == [0]
 
@@ -80,7 +81,7 @@ def test_detect_conflicting_sections():
         PromptSection(index=1, title="t2", content="c2", category="constraint", char_start=1, char_end=2)
     ]
     def mock_llm(p, t): return '[{"pair": 1, "verdict": "conflict"}]'
-    
+
     conflicts = detect_conflicting_sections(secs, mock_llm)
     assert conflicts == [(0, 1)]
 
@@ -99,7 +100,7 @@ def test_analyze_prompt():
         if "contradictions" in p:
             return '[]'
         return "{}"
-        
+
     res = analyze_prompt("prompt", "query", "out", mock_llm)
     assert len(res.sections) == 1
     assert 0 in res.section_attributions
@@ -109,11 +110,11 @@ def test_score_few_shot_quality():
     res1 = score_few_shot_quality([s1])
     assert res1["score"] == 0.5  # < 3
     assert res1["count"] == 1
-    
+
     s2 = PromptSection(index=1, title="Examples", content="Output: 1\nOutput: 2\nOutput: 3\nOutput: 4", category="instruction", char_start=0, char_end=1)
     res2 = score_few_shot_quality([s2])
     assert res2["score"] == 1.0  # 3-10
-    
+
     s3 = PromptSection(index=2, title="Rules", content="No examples here", category="instruction", char_start=0, char_end=1)
     res3 = score_few_shot_quality([s3])
     assert res3["has_examples"] is False

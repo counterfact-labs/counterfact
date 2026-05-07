@@ -20,15 +20,14 @@ Dependencies: types only (LLM function is injected via llm_fn)
 
 import json
 import re
-from typing import Callable, Optional, Any
+from typing import Any, Callable, Optional
 
 from counterfact.types import (
-    PromptSection,
+    EvalResult,
     PlanStep,
     PromptAnalysisResult,
-    EvalResult,
+    PromptSection,
 )
-
 
 # ═════════════════════════════════════════════════════════════════════════
 # PROMPT PARSING
@@ -111,12 +110,12 @@ Respond with ONLY a JSON array:
 def parse_system_prompt(prompt: str) -> list[PromptSection]:
     """
     Rule-based parser for system prompts.
-    
+
     Splits the prompt by:
       1. Markdown-style headings (# Section, ## Subsection)
       2. Numbered sections (1., 2., 3.)
       3. Double newlines (paragraph breaks)
-      
+
     This provides a deterministic, fast way to segment prompts without LLM calls,
     especially useful for non-thinking models that have simpler, structured prompts.
     """
@@ -139,7 +138,7 @@ def parse_system_prompt(prompt: str) -> list[PromptSection]:
                 category = "context"
             elif "constraint" in title_lower or "rule" in title_lower or "never" in title_lower:
                 category = "constraint"
-                
+
             sections.append(PromptSection(
                 index=i,
                 title=match.group(2).strip()[:60],
@@ -153,12 +152,12 @@ def parse_system_prompt(prompt: str) -> list[PromptSection]:
         paragraphs = [p.strip() for p in prompt.split("\n\n") if p.strip()]
         for i, para in enumerate(paragraphs):
             char_start = prompt.find(para[:50])
-            
+
             # Simple heuristic for few-shot examples
             category = "instruction"
             if "Example:" in para or "Input:" in para and "Output:" in para:
                 category = "context"
-                
+
             sections.append(PromptSection(
                 index=i,
                 title=f"Section {i+1}",
@@ -248,7 +247,7 @@ Respond with ONLY valid JSON:
         response = llm_fn(prompt, 0.1)
         parsed_res = _parse_json_response(response)
         parsed = parsed_res if isinstance(parsed_res, dict) else (parsed_res[0] if isinstance(parsed_res, list) and parsed_res else {})
-        
+
         completeness = float(parsed.get("completeness", 0.5))
         efficiency = float(parsed.get("efficiency", 0.5))
         adherence = float(parsed.get("adherence", 0.5))
@@ -627,12 +626,12 @@ def score_few_shot_quality(sections: list[PromptSection]) -> dict[str, Any]:
     """
     # Look for sections identified as examples
     example_sections = [
-        s for s in sections 
-        if "example" in s.title.lower() or 
+        s for s in sections
+        if "example" in s.title.lower() or
            "few-shot" in s.title.lower() or
            (s.category == "context" and ("Input:" in s.content and "Output:" in s.content))
     ]
-    
+
     if not example_sections:
         return {
             "score": 0.0,
@@ -640,10 +639,10 @@ def score_few_shot_quality(sections: list[PromptSection]) -> dict[str, Any]:
             "count": 0,
             "feedback": "No few-shot examples found. Adding 3-5 high-quality examples usually improves performance."
         }
-        
+
     total_examples = sum(s.content.lower().count("output:") for s in example_sections)
     total_examples = max(len(example_sections), total_examples)
-    
+
     # Assess quality
     if total_examples < 3:
         score = 0.5
@@ -654,7 +653,7 @@ def score_few_shot_quality(sections: list[PromptSection]) -> dict[str, Any]:
     else:
         score = 1.0
         feedback = f"Found a healthy number of examples ({total_examples})."
-        
+
     return {
         "score": score,
         "has_examples": True,

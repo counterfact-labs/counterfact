@@ -1,16 +1,19 @@
-import pytest
-import os
 import json
-from unittest.mock import patch, MagicMock, mock_open
+import os
+from unittest.mock import MagicMock, mock_open, patch
+
+import pytest
+
 import counterfact
 import counterfact.cli
 from counterfact.cli import _load_trace, _resolve_llm_fn, main
+
 
 def test_load_trace_list(tmp_path):
     trace_data = [{"node": "a", "output": "b"}]
     file_path = tmp_path / "trace.json"
     file_path.write_text(json.dumps(trace_data))
-    
+
     res = _load_trace(str(file_path), MagicMock())
     assert res == {"trace": trace_data}
 
@@ -18,7 +21,7 @@ def test_load_trace_dict(tmp_path):
     trace_data = {"trace": [{"node": "a"}], "query": "q"}
     file_path = tmp_path / "trace.json"
     file_path.write_text(json.dumps(trace_data))
-    
+
     res = _load_trace(str(file_path), MagicMock())
     assert res == trace_data
 
@@ -26,7 +29,7 @@ def test_load_trace_dict(tmp_path):
 def test_load_trace_invalid(mock_exit, tmp_path):
     file_path = tmp_path / "trace.json"
     file_path.write_text("invalid json")
-    
+
     with pytest.raises(SystemExit):
         _load_trace(str(file_path), MagicMock())
     mock_exit.assert_called_with(1)
@@ -67,7 +70,7 @@ def test_make_anthropic_caller(mock_console):
     import sys
     from unittest.mock import MagicMock
     mock_anthropic = MagicMock()
-    
+
     with patch.dict(sys.modules, {"anthropic": mock_anthropic}):
         caller = counterfact.cli._make_anthropic_caller("key", mock_console())
         res = caller("test prompt", 0.5)
@@ -80,7 +83,7 @@ def test_make_google_caller(mock_console):
     mock_genai = MagicMock()
     mock_google = MagicMock()
     mock_google.genai = mock_genai
-    
+
     with patch.dict(sys.modules, {"google": mock_google, "google.genai": mock_genai}):
         caller = counterfact.cli._make_google_caller("key", mock_console())
         res = caller("test prompt", 0.5)
@@ -92,7 +95,7 @@ def test_main_commands(mock_discover, mock_eval):
     with patch("sys.argv", ["counterfact", "eval", "trace.json"]):
         main()
         mock_eval.assert_called()
-        
+
     with patch("sys.argv", ["counterfact", "discover", "logs.txt"]):
         main()
         mock_discover.assert_called()
@@ -106,7 +109,7 @@ def test_run_eval(mock_eval_suite, mock_console, mock_load):
     mock_args = MagicMock()
     mock_args.trace_file = "test.json"
     mock_args.provider = None
-    
+
     mock_suite = MagicMock()
     mock_result = MagicMock()
     mock_result.passed = True
@@ -115,7 +118,7 @@ def test_run_eval(mock_eval_suite, mock_console, mock_load):
     mock_result.message = "msg"
     mock_suite.results = [mock_result]
     mock_eval_suite.return_value = mock_suite
-    
+
     counterfact.cli.run_eval(mock_args)
     mock_eval_suite.assert_called()
 
@@ -127,7 +130,7 @@ def test_run_discover(mock_discover, mock_console, mock_load):
     from unittest.mock import MagicMock
     mock_args = MagicMock()
     mock_args.log_file = "logs.json"
-    
+
     mock_plan = MagicMock()
     mock_plan.pipeline_description = "desc"
     mock_plan.domain = "rag"
@@ -137,7 +140,7 @@ def test_run_discover(mock_discover, mock_console, mock_load):
     mock_agent.description = "desc"
     mock_plan.agent_profiles = [mock_agent]
     mock_discover.return_value = mock_plan
-    
+
     with patch("builtins.open", mock_open(read_data="logs content")):
         counterfact.cli.run_discover(mock_args)
     mock_discover.assert_called()

@@ -15,34 +15,34 @@ Dependencies: evals, perturbation, attribution, recommendations, classifiers, ty
 """
 
 from dataclasses import dataclass, field
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Optional
 
 import numpy as np
 
-from counterfact.types import (
-    SimulationResult,
-    FailureClassification,
-    Recommendation,
-    EvaluationResult,
-    EvalSuite,
-    ConfidenceInterval,
-)
-from counterfact.evals import run_eval_suite
-from counterfact.perturbation import run_monte_carlo
 from counterfact.attribution import (
-    compute_shapley_values,
-    compute_per_classifier_loo,
     classify_failure,
     compute_bootstrap_ci,
-)
-from counterfact.recommendations import (
-    generate_recommendations,
-    evaluate_recommendation,
-    extract_empirical_fixes,
-    detect_coverage_gaps,
-    rank_recommendations,
+    compute_per_classifier_loo,
+    compute_shapley_values,
 )
 from counterfact.classifiers import ClassifierRegistry
+from counterfact.evals import run_eval_suite
+from counterfact.perturbation import run_monte_carlo
+from counterfact.recommendations import (
+    detect_coverage_gaps,
+    evaluate_recommendation,
+    extract_empirical_fixes,
+    generate_recommendations,
+    rank_recommendations,
+)
+from counterfact.types import (
+    ConfidenceInterval,
+    EvalSuite,
+    EvaluationResult,
+    FailureClassification,
+    Recommendation,
+    SimulationResult,
+)
 
 if TYPE_CHECKING:
     from counterfact.graph import CounterfactualGraph

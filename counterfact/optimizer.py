@@ -29,8 +29,7 @@ Dependencies: numpy (types only for dataclasses)
 
 import random
 from dataclasses import dataclass
-from typing import Callable, Optional, Any
-
+from typing import Any, Callable, Optional
 
 # ═════════════════════════════════════════════════════════════════════════
 # SEARCH SPACE DEFINITION

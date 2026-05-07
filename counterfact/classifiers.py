@@ -21,8 +21,7 @@ import json
 import re
 from typing import Callable, Optional
 
-from counterfact.types import ClassifierResult, ClassifierFn
-
+from counterfact.types import ClassifierFn, ClassifierResult
 
 # ═════════════════════════════════════════════════════════════════════════
 # CLASSIFIER REGISTRY

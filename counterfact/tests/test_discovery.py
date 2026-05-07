@@ -1,16 +1,18 @@
 import pytest
+
 from counterfact.discovery import (
-    discover_pipeline,
-    infer_schemas,
-    estimate_importance,
-    suggest_perturbation_strategies,
-    suggest_classifiers,
-    infer_domain,
-    _extract_agent_info_from_traces,
     _compute_discovery_confidence,
-    _parse_json_response
+    _extract_agent_info_from_traces,
+    _parse_json_response,
+    discover_pipeline,
+    estimate_importance,
+    infer_domain,
+    infer_schemas,
+    suggest_classifiers,
+    suggest_perturbation_strategies,
 )
 from counterfact.types import AgentProfile
+
 
 def test_discover_pipeline_no_args():
     with pytest.raises(ValueError, match="At least one"):

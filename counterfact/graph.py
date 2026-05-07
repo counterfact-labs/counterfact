@@ -30,19 +30,19 @@ Dependencies:
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Type
 from dataclasses import dataclass, field
+from typing import Any, Callable, Optional, Type
 
+from langgraph.graph import END as END
+from langgraph.graph import START as START
 from langgraph.graph import StateGraph as _LangGraphStateGraph
-from langgraph.graph import END as END, START as START
 
 from counterfact.tracing import (
-    TracingContext,
     TraceEntry,
-    wrap_node,
+    TracingContext,
     set_active_context,
+    wrap_node,
 )
-
 
 # ═════════════════════════════════════════════════════════════════════════
 # BUILD RECIPE

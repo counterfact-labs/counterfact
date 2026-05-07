@@ -10,12 +10,11 @@ and the standard library. It should always be safe to import.
 Dependencies: types only
 """
 
-import time
 import threading
+import time
 from typing import Any, Callable, Optional
 
 from counterfact.types import TraceEntry
-
 
 # ═════════════════════════════════════════════════════════════════════════
 # TRACING CONTEXT

@@ -12,10 +12,10 @@ actual pipeline and are only available via the Python API:
 
 Requires: pip install counterfact[cli]
 """
-import sys
-import os
-import json
 import argparse
+import json
+import os
+import sys
 from typing import Optional
 
 try:

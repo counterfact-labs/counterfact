@@ -25,12 +25,11 @@ import numpy as np
 
 from counterfact.types import (
     AgentSpec,
+    EvaluationResult,
     FailureClassification,
     Recommendation,
-    EvaluationResult,
     SimulationResult,
 )
-
 
 # ═════════════════════════════════════════════════════════════════════════
 # AGENT TEMPLATE LIBRARY

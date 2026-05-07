@@ -18,13 +18,12 @@ the existing perturbation/attribution/eval infrastructure.
 Dependencies: types only
 """
 
-import time
-import json
 import functools
-from typing import Callable, Optional, Any
+import json
+import time
+from typing import Any, Callable, Optional
 
 from counterfact.types import ToolCall
-
 
 # ═════════════════════════════════════════════════════════════════════════
 # TOOL TRACER

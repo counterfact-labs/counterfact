@@ -1,18 +1,18 @@
 from unittest.mock import MagicMock, patch
 
+from counterfact.diagnostics import (
+    DiagnosticReport,
+    _build_summary,
+    _make_no_failure_classification,
+    run_full_diagnostic,
+)
 from counterfact.types import (
-    SimulationResult,
     ClassifierResult,
+    ConfidenceInterval,
     FailureClassification,
     Perturbation,
     Recommendation,
-    ConfidenceInterval,
-)
-from counterfact.diagnostics import (
-    DiagnosticReport,
-    run_full_diagnostic,
-    _make_no_failure_classification,
-    _build_summary,
+    SimulationResult,
 )
 
 # ─── Data models ─────────────────────────────────────────────────────────
@@ -41,13 +41,13 @@ def test_diagnostic_report_serialization():
     assert d["classification"]["failure_type"] == "local"
     assert "a" in d["shapley_cis"]
     assert d["baseline_quality_ci"]["mean"] == 0.9
-    
+
     with patch("counterfact.export.to_json", return_value="json"):
         assert report.to_json() == "json"
-        
+
     with patch("counterfact.export.to_markdown", return_value="md"):
         assert report.to_markdown() == "md"
-        
+
     with patch("counterfact.export.to_html", return_value="html"):
         assert report.to_html() == "html"
 
@@ -73,7 +73,7 @@ def test_make_no_failure_classification():
 def test_build_summary():
     sims = [MagicMock(classifier_results=[MagicMock()]), MagicMock(classifier_results=[MagicMock()])]
     baselines = [MagicMock(quality_score=0.9, classifier_results=[MagicMock(name="c1")])]
-    
+
     summary = _build_summary(sims, [0.9], 0.9, ["a"], "loo", True, baselines)
     assert summary["total_simulations"] == 2
     assert summary["baseline_runs"] == 1
@@ -108,7 +108,7 @@ def test_run_full_diagnostic_quality_gate(
     mock_mc.return_value = [sim]
 
     report = run_full_diagnostic(mock_graph, {"query": "hi"}, quality_gate=0.8, run_evals=False)
-    
+
     # Should skip attribution
     mock_shapley.assert_not_called()
     assert report.classification.failure_type == "no_failure"
@@ -162,7 +162,7 @@ def test_run_full_diagnostic_full_path(
 
     # Run
     report = run_full_diagnostic(mock_graph, {"q": "hi"}, quality_gate=0.8, run_evals=True)
-    
+
     # Should call everything
     mock_shapley.assert_called_once()
     mock_classify.assert_called_once()
@@ -194,23 +194,23 @@ def test_run_full_diagnostic_evaluate_rec(
         classifier_results=[], is_baseline=True
     )
     mock_mc.return_value = [sim]
-    
+
     mock_shapley.return_value = ({"a": 0.5}, {"a": ConfidenceInterval(0.5, 0.4, 0.6, 5)}, {})
     mock_classify.return_value = FailureClassification("local", 0.9, "", [], "a", [])
-    
+
     mock_extract.return_value = []
     mock_detect.return_value = []
-    
+
     # Generate falls back
     rec = Recommendation("desc", 0.5, "estimated", "local", 0.5, "low", 1)
     mock_gen.return_value = [rec]
     mock_rank.return_value = [rec]
-    
+
     mock_eval_rec.return_value = MagicMock()
 
     # Pass llm_fn so it evaluates
     report = run_full_diagnostic(mock_graph, {"q": "hi"}, quality_gate=0.8, llm_fn=lambda p, t: "a", run_evals=False)
-    
+
     mock_eval_rec.assert_called_once()
     assert len(report.evaluations) == 1
 
@@ -223,10 +223,10 @@ def test_run_full_diagnostic_eval_suite_failure(mock_shapley, mock_mc, mock_eval
     mock_graph = MagicMock()
     mock_graph.invoke.return_value = {"output": "text"}
     mock_eval.side_effect = Exception("Eval failed")
-    
+
     mock_mc.return_value = [SimulationResult(simulation_id=0, perturbation=None, quality_score=0.9, classifier_results=[], is_baseline=True)]
     mock_shapley.return_value = ({"a": 0.5}, {"a": ConfidenceInterval(0.5, 0.4, 0.6, 5)}, {})
-    
+
     report = run_full_diagnostic(mock_graph, {"q": "hi"}, run_evals=True)
     assert report.eval_suite is None
     assert report.classification.failure_type == "no_failure"
@@ -272,7 +272,7 @@ def test_run_full_diagnostic_failure_focused_attribution(
 
     # Run
     report = run_full_diagnostic(mock_graph, {"q": "hi"}, quality_gate=0.8, run_evals=False)
-    
+
     # Assert failure focused logic was applied (shapley values should still exist)
     assert report.classification.failure_type == "architectural_gap"
     assert "a" in report.shapley_values
