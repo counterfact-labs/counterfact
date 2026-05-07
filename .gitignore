@@ -49,3 +49,5 @@ htmlcov/
 # LLM cache (development only)
 .llm_cache.json
 llm_cache/
+.counterfact_cache/
+

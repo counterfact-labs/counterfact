@@ -1,31 +1,65 @@
 """
-LLM provider and response caching.
+LLM provider abstraction with response caching.
 
-This module provides a unified interface for calling LLMs (Gemini, Anthropic)
-and handles persistent response caching to minimize cost and latency during
-repeated diagnostic runs.
+Provides a unified interface for calling LLMs (Google Gemini, Anthropic Claude)
+with persistent response caching to minimize cost and latency during repeated
+diagnostic runs.
+
+Configuration:
+    API keys are read from environment variables:
+      - GOOGLE_API_KEY or GEMINI_API_KEY — for Google Gemini
+      - ANTHROPIC_API_KEY — for Anthropic Claude
+
+    Model names default to stable aliases but can be overridden:
+      - COUNTERFACT_GEMINI_MODEL — default: "gemini-2.5-flash"
+      - COUNTERFACT_ANTHROPIC_MODEL — default: "claude-sonnet-4-20250514"
+
+    Cache location can be overridden:
+      - COUNTERFACT_CACHE_DIR — default: ~/.cache/counterfact/
+
+Dependencies: none (LLM SDKs are optional, imported on demand)
 """
 
-import os
-import json
 import hashlib
+import json
+import logging
+import os
 
-# Load configuration (assumes root config.py is reachable)
-try:
-    from config import get_anthropic_api_key, get_google_api_key, get_api_key  # type: ignore
-except ImportError:
-    # Fallback for standalone usage
-    def get_api_key(): return ""
-    def get_anthropic_api_key(): return os.environ.get("ANTHROPIC_API_KEY", "")
-    def get_google_api_key(): return os.environ.get("GOOGLE_API_KEY", "")
+logger = logging.getLogger(__name__)
 
-_ANTHROPIC_MODEL = "claude-opus-4-6"
-_GEMINI_MODEL = "gemini-2.5-flash"
+_ANTHROPIC_MODEL = os.environ.get("COUNTERFACT_ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+_GEMINI_MODEL = os.environ.get("COUNTERFACT_GEMINI_MODEL", "gemini-2.5-flash")
 
-_LLM_CACHE_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".llm_cache.json")
+
+def _get_cache_dir() -> str:
+    """Get the cache directory, creating it if necessary.
+
+    Priority: COUNTERFACT_CACHE_DIR env var > ~/.counterfact > project-local fallback.
+    """
+    candidates = [
+        os.environ.get("COUNTERFACT_CACHE_DIR", ""),
+        os.path.join(os.path.expanduser("~"), ".counterfact"),
+    ]
+    for path in candidates:
+        if not path:
+            continue
+        try:
+            os.makedirs(path, exist_ok=True)
+            return path
+        except OSError:
+            continue
+    # Last resort: use a local directory
+    fallback = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".counterfact_cache")
+    os.makedirs(fallback, exist_ok=True)
+    return fallback
+
+
+_LLM_CACHE_FILE = os.path.join(_get_cache_dir(), "llm_cache.json")
 _llm_cache: dict = {}
 
-def load_cache():
+
+def load_cache() -> None:
+    """Load the LLM response cache from disk."""
     global _llm_cache
     if not _llm_cache and os.path.exists(_LLM_CACHE_FILE):
         try:
@@ -34,25 +68,41 @@ def load_cache():
         except Exception:
             _llm_cache = {}
 
-def save_cache():
+
+def save_cache() -> None:
+    """Persist the LLM response cache to disk."""
     try:
         with open(_LLM_CACHE_FILE, "w") as f:
             f.write(json.dumps(_llm_cache))
     except Exception:
         pass
 
+
 def get_cache_key(prompt: str, temperature: float) -> str:
+    """Generate a deterministic cache key from prompt + temperature."""
     return hashlib.sha256(f"{prompt}|{temperature}".encode()).hexdigest()[:16]
 
+
 def call_llm(prompt: str, temperature: float = 0.1) -> str:
-    """Unified LLM call with caching and provider fallback."""
+    """Unified LLM call with caching and provider fallback.
+
+    Tries Google Gemini first, falls back to Anthropic Claude.
+    Responses are cached to disk for reproducibility and cost savings.
+
+    Args:
+        prompt: The prompt to send to the LLM.
+        temperature: Sampling temperature (0.0–1.0).
+
+    Returns:
+        The LLM response text, or "" if no provider is available.
+    """
     load_cache()
     key = get_cache_key(prompt, temperature)
     if key in _llm_cache:
         return _llm_cache[key]
 
     # Try Google Gemini first
-    google_key = get_google_api_key()
+    google_key = os.environ.get("GOOGLE_API_KEY", "") or os.environ.get("GEMINI_API_KEY", "")
     if google_key:
         try:
             from google import genai  # type: ignore
@@ -70,10 +120,10 @@ def call_llm(prompt: str, temperature: float = 0.1) -> str:
             save_cache()
             return result
         except Exception as e:
-            print(f"  ⚠️ Gemini failed: {str(e)[:50]}")
+            logger.warning("Gemini call failed: %s", str(e)[:100])
 
     # Fall back to Anthropic
-    anthropic_key = get_anthropic_api_key()
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if anthropic_key:
         try:
             import anthropic  # type: ignore
@@ -90,6 +140,6 @@ def call_llm(prompt: str, temperature: float = 0.1) -> str:
             save_cache()
             return result
         except Exception as e:
-            print(f"  ⚠️ Anthropic failed: {str(e)[:50]}")
+            logger.warning("Anthropic call failed: %s", str(e)[:100])
 
     return ""
