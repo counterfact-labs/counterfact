@@ -1,5 +1,9 @@
 # counterfact
 
+[![CI](https://github.com/counterfact-labs/counterfact/actions/workflows/ci.yml/badge.svg)](https://github.com/counterfact-labs/counterfact/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+
 **Deterministic, evidence-driven diagnostics for multi-agent AI systems.**
 
 `counterfact` is a drop-in replacement for [LangGraph](https://github.com/langchain-ai/langgraph) that automatically instruments your multi-agent pipelines with execution tracing, ground-truth-free evaluation, and real counterfactual analysis.
