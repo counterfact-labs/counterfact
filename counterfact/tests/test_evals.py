@@ -1,16 +1,18 @@
 from unittest.mock import patch
+
 from counterfact.evals import (
     check_empty_outputs,
     check_error_status,
-    check_schema_violations,
+    check_faithfulness,
+    check_grounding,
+    check_inter_agent_coherence,
     check_latency_anomalies,
     check_output_length_anomalies,
-    check_faithfulness,
-    check_inter_agent_coherence,
-    check_grounding,
+    check_schema_violations,
     run_eval_suite,
 )
 from counterfact.types import EvalResult, EvalSuite
+
 
 def test_check_empty_outputs():
     trace = [
@@ -64,11 +66,11 @@ def test_check_latency_anomalies():
 def test_check_plan_completeness_expected_tools():
     from counterfact.evals import check_plan_completeness
     trace = [{"node": "a"}, {"node": "b"}]
-    
+
     # No expected tools, > 1 distinct
     res = check_plan_completeness(trace)
     assert res[0].passed is True
-    
+
     # Missing tools
     res = check_plan_completeness(trace, expected_tools=["a", "c"])
     assert res[0].passed is False
@@ -112,7 +114,7 @@ def test_check_plan_completeness():
     ]
     results = check_plan_completeness(trace)
     assert len(results) >= 1
-    
+
     trace_good = [
         {"node": "a", "output": {"steps": ["step1", "step2"]}},
         {"node": "b", "output": {"step": "step1"}},
@@ -125,7 +127,7 @@ def test_check_tool_error_rate():
     from counterfact.types import ToolCall
     trace = [
         {
-            "node": "a", 
+            "node": "a",
             "tool_calls": [
                 ToolCall("t1", {}, {}, status="error").__dict__,
                 ToolCall("t2", {}, {}, status="success").__dict__,
@@ -140,7 +142,7 @@ def test_check_tool_redundancy():
     from counterfact.types import ToolCall
     trace = [
         {
-            "node": "a", 
+            "node": "a",
             "tool_calls": [
                 ToolCall("search", {"q": "test"}, {}).__dict__,
                 ToolCall("search", {"q": "test"}, {}).__dict__, # redundant
@@ -160,7 +162,7 @@ def test_check_inter_agent_coherence():
     def mock_llm(p, t):
         return '{"contradiction": true, "reasoning": "test"}'
     trace = [
-        {"node": "a", "output": {"text": "something very long here..."}}, 
+        {"node": "a", "output": {"text": "something very long here..."}},
         {"node": "b", "output": {"text": "something else very long..."}}
     ]
     result = check_inter_agent_coherence(trace, mock_llm)
@@ -179,7 +181,7 @@ def test_run_eval_suite_full(mock_grounding, mock_coherence, mock_faith):
     mock_faith.return_value = EvalResult("f", True, "info", "m")
     mock_coherence.return_value = EvalResult("c", True, "info", "m")
     mock_grounding.return_value = EvalResult("g", True, "info", "m")
-    
+
     trace = [
         {"node": "a", "output": {"x": 1}, "status": "pass", "duration_ms": 100, "tokens": 10},
     ]

@@ -28,7 +28,6 @@ from typing import Callable, Optional
 
 from counterfact.types import EvalResult, EvalSuite
 
-
 # ═════════════════════════════════════════════════════════════════════════
 # TIER 1: STRUCTURAL HEALTH CHECKS
 # These run instantly with zero external dependencies. No LLM needed.
@@ -233,7 +232,10 @@ def check_latency_anomalies(
                 check_name="latency_anomaly",
                 passed=False,
                 severity="warning",
-                message=f"Agent '{node}' took {duration:.0f}ms ({duration/median_time:.1f}x the median of {median_time:.0f}ms).",
+                message=(
+                    f"Agent '{node}' took {duration:.0f}ms "
+                    f"({duration/median_time:.1f}x the median of {median_time:.0f}ms)."
+                ),
                 agent=node,
                 details={"duration_ms": duration, "median_ms": median_time,
                          "ratio": round(duration / median_time, 2)},

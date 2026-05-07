@@ -20,19 +20,16 @@ Dependencies: types, numpy
 """
 
 
-import itertools
-import random
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 import numpy as np
 
 from counterfact.types import (
     ClassifierResult,
-    SimulationResult,
-    FailureClassification,
     ConfidenceInterval,
+    FailureClassification,
+    SimulationResult,
 )
-
 
 # ═════════════════════════════════════════════════════════════════════════
 # LOO (LEAVE-ONE-OUT) ATTRIBUTION
@@ -108,8 +105,8 @@ def is_loo_inconclusive(
 
 
 def compute_bootstrap_ci(
-    values: list[float], 
-    n_bootstrap: int = 1000, 
+    values: list[float],
+    n_bootstrap: int = 1000,
     alpha: float = 0.05
 ) -> ConfidenceInterval:
     """
@@ -119,19 +116,19 @@ def compute_bootstrap_ci(
         return ConfidenceInterval(0.0, 0.0, 0.0, 0)
     if len(values) == 1:
         return ConfidenceInterval(values[0], values[0], values[0], 1)
-        
+
     n = len(values)
     values_arr = np.array(values)
-    
+
     # Generate bootstrap samples
     indices = np.random.randint(0, n, size=(n_bootstrap, n))
     samples = values_arr[indices]
     means = np.mean(samples, axis=1)
-    
+
     mean = float(np.mean(values))
     ci_low = float(np.percentile(means, 100 * (alpha / 2)))
     ci_high = float(np.percentile(means, 100 * (1 - alpha / 2)))
-    
+
     return ConfidenceInterval(mean, ci_low, ci_high, n)
 
 
@@ -148,8 +145,10 @@ def compute_shapley_values(
     registry=None,
     n_permutations: int = 20,
 ) -> tuple[dict[str, float], dict[str, "ConfidenceInterval"], dict[str, dict[str, float]]]:
-    import numpy as np
     from collections import defaultdict
+
+    import numpy as np
+
     from counterfact.types import ConfidenceInterval
 
     agents = list(dict.fromkeys(
@@ -163,7 +162,7 @@ def compute_shapley_values(
     if not agents:
         return {}, {}, {}
 
-    N = len(agents)
+    len(agents)
     full_coalition = frozenset(agents)
 
     coalition_quality_cache = {full_coalition: baseline_mean}
@@ -183,7 +182,7 @@ def compute_shapley_values(
         ]
 
     ablation_runs = [r for r in simulation_results if not r.is_baseline and r.perturbation]
-    
+
     coalition_groups = defaultdict(list)
     for r in ablation_runs:
         if r.perturbation.agent:
@@ -207,41 +206,51 @@ def compute_shapley_values(
     coalition_quality_cache[frozenset()] = 0.0
     coalition_clf_cache[frozenset()] = []
 
-    if N <= 4:
-        perms = list(itertools.permutations(agents))
-    else:
-        n_perms = max(5, sum(1 for _ in simulation_results) // max(1, N))
-        perms = [tuple(random.sample(agents, N)) for _ in range(n_perms)]
+    marginals_by_size: dict[str, dict[int, list[float]]] = {a: {} for a in agents}
+    per_clf_marginals_by_size: dict[str, dict[str, dict[int, list[float]]]] = {}
 
-    marginals: dict[str, list[float]] = {a: [] for a in agents}
-    per_clf_marginals: dict[str, dict[str, list[float]]] = {}
+    for S_with_i in coalition_quality_cache:
+        for agent in agents:
+            if agent in S_with_i:
+                S = frozenset(S_with_i - {agent})
+                if S in coalition_quality_cache:
+                    k = len(S)
+                    v_curr = coalition_quality_cache[S_with_i]
+                    v_prev = coalition_quality_cache[S]
 
-    for perm in perms:
-        coalition = frozenset()
-        v_prev = 0.0
-        prev_clf_scores: dict[str, float] = {}
+                    if k not in marginals_by_size[agent]:
+                        marginals_by_size[agent][k] = []
+                    marginals_by_size[agent][k].append(v_curr - v_prev)
 
-        for agent in perm:
-            coalition = coalition | {agent}
-            v_curr = coalition_quality_cache.get(coalition, 0.0)
-            marginals[agent].append(v_curr - v_prev)
-            v_prev = v_curr
+                    curr_clf = coalition_clf_cache.get(S_with_i, [])
+                    prev_clf = coalition_clf_cache.get(S, [])
+                    curr_clf_scores = {c.name: c.score for c in curr_clf}
+                    prev_clf_scores = {c.name: c.score for c in prev_clf}
 
-            clf_results = coalition_clf_cache.get(coalition, [])
-            curr_clf_scores = {c.name: c.score for c in clf_results}
-            for clf_name, curr_score in curr_clf_scores.items():
-                prev_score = prev_clf_scores.get(clf_name, 0.0)
-                if clf_name not in per_clf_marginals:
-                    per_clf_marginals[clf_name] = {a: [] for a in agents}
-                per_clf_marginals[clf_name][agent].append(curr_score - prev_score)
-            prev_clf_scores = curr_clf_scores
+                    for clf_name, curr_score in curr_clf_scores.items():
+                        prev_score = prev_clf_scores.get(clf_name, 0.0)
+                        if clf_name not in per_clf_marginals_by_size:
+                            per_clf_marginals_by_size[clf_name] = {a: {} for a in agents}
+                        if k not in per_clf_marginals_by_size[clf_name][agent]:
+                            per_clf_marginals_by_size[clf_name][agent][k] = []
+                        per_clf_marginals_by_size[clf_name][agent][k].append(curr_score - prev_score)
 
     shapley = {}
     cis = {}
     for agent in agents:
-        m = marginals[agent]
-        shapley[agent] = float(np.mean(m)) if m else 0.0
-        cis[agent] = compute_bootstrap_ci(m) if m else ConfidenceInterval(0.0, 0.0, 0.0, 0)
+        agent_means = []
+        all_agent_marginals = []
+        for k, m_list in marginals_by_size[agent].items():
+            if m_list:
+                agent_means.append(float(np.mean(m_list)))
+                all_agent_marginals.extend(m_list)
+
+        shapley[agent] = float(np.mean(agent_means)) if agent_means else 0.0
+        cis[agent] = (
+            compute_bootstrap_ci(all_agent_marginals)
+            if all_agent_marginals
+            else ConfidenceInterval(0.0, 0.0, 0.0, 0)
+        )
 
     total = sum(abs(v) for v in shapley.values())
     if total > 0:
@@ -252,10 +261,15 @@ def compute_shapley_values(
             cis[k].ci_high /= total
 
     per_clf_shapley: dict[str, dict[str, float]] = {}
-    for clf_name, agent_marginals in per_clf_marginals.items():
+    for clf_name, agent_dict in per_clf_marginals_by_size.items():
         per_clf_shapley[clf_name] = {}
-        for agent, m in agent_marginals.items():
-            per_clf_shapley[clf_name][agent] = float(np.mean(m)) if m else 0.0
+        for agent, sizes_dict in agent_dict.items():
+            agent_means = []
+            for k, m_list in sizes_dict.items():
+                if m_list:
+                    agent_means.append(float(np.mean(m_list)))
+            per_clf_shapley[clf_name][agent] = float(np.mean(agent_means)) if agent_means else 0.0
+
         c_total = sum(abs(v) for v in per_clf_shapley[clf_name].values())
         if c_total > 0:
             per_clf_shapley[clf_name] = {k: v / c_total for k, v in per_clf_shapley[clf_name].items()}
@@ -498,9 +512,12 @@ def classify_failure(
             f"Persistent zero-score classifiers: {', '.join(persistent_gap_clfs)}",
             f"These dimensions score <{PERSISTENT_FAIL_THRESHOLD} in ALL {len(simulation_results)} simulations",
             "Ablating any agent does not fix these dimensions — the capability is missing",
-            f"Additional failing classifiers: {', '.join(c for c in failing_classifiers if c not in persistent_gap_clfs)}"
-            if len(failing_classifiers) > len(persistent_gap_clfs) else
-            "The pipeline architecture needs a new agent to cover these dimensions",
+            (
+                f"Additional failing classifiers: "
+                f"{', '.join(c for c in failing_classifiers if c not in persistent_gap_clfs)}"
+            )
+            if len(failing_classifiers) > len(persistent_gap_clfs)
+            else "The pipeline architecture needs a new agent to cover these dimensions",
         ]
         return FailureClassification(
             failure_type="architectural_gap",
