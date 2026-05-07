@@ -33,7 +33,7 @@ Run:
 """
 
 import os
-from pathlib import Path
+
 
 from typing import TypedDict
 from counterfact import StateGraph, END
@@ -43,18 +43,16 @@ from counterfact.types import ClassifierResult
 # ─── Load API Key ────────────────────────────────────────────────────────
 
 def load_anthropic_key() -> str:
-    """Load Anthropic API key from environment or ../.env file."""
+    """Load Anthropic API key from environment.
+
+    Set ANTHROPIC_API_KEY in your environment before running this example.
+    """
     key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not key:
-        env_path = Path(__file__).resolve().parent.parent.parent / "counterfactual-debugger" / ".env"
-        if env_path.exists():
-            for line in env_path.read_text().splitlines():
-                if line.startswith("ANTHROPIC_API_KEY="):
-                    key = line.split("=", 1)[1].strip()
-                    os.environ["ANTHROPIC_API_KEY"] = key
-                    break
-    if not key:
-        raise RuntimeError("ANTHROPIC_API_KEY not found")
+        raise RuntimeError(
+            "ANTHROPIC_API_KEY not found. "
+            "Set it in your environment: export ANTHROPIC_API_KEY=sk-ant-..."
+        )
     return key
 
 
