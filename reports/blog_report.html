@@ -287,6 +287,10 @@
         behind</a>. When a pipeline of 8 LLM-powered agents produces a wrong answer, the trace tells you every agent
       passed. It doesn't tell you which agent to fix.</p>
 
+    <div style="text-align:center;margin:2rem 0">
+      <img src="dev_cycle.png" alt="Build → Evaluate → Debug cycle" style="max-width:360px;width:100%">
+    </div>
+
     <p>At Google, we relied on established workflows to make ML systems for Search highly deterministic and
       controllable. Those tools didn't exist at DeepMind, and they are largely missing from today's multi-agent
       ecosystems. I'm working to create the science and tools to bring that same rigor to AI systems. (For background on
@@ -757,7 +761,7 @@ No agent degrading quality beyond noise</code></pre>
 
     <h2>Key Takeaways</h2>
 
-    <blockquote><strong>Semantic correctness does not guarantee behavioral correctness.</strong> "Minor rounding differences are acceptable" and "simplify large numbers" are reasonable instructions. The failures are in how Claude interprets these subjective terms at inference time.</blockquote>
+    <blockquote><strong>Semantic correctness does not guarantee behavioral correctness.</strong> When we rely on LLMs to interpret vague instructions using their own judgment, "minor rounding differences are acceptable" and "simplify large numbers" become failure modes. The instructions read correctly to a human reviewer, but Claude's interpretation at inference time produces systematically wrong outputs.</blockquote>
 
     <ol style="margin-left:1.5rem">
       <li style="margin-bottom:0.8rem"><strong>The worst agent varies by query.</strong> On CapEx, the query parser is
