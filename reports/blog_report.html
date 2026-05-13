@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iterative Refinement of a Multi-Agent Pipeline: A Case Study</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #fafaf9;
+      --fg: #1c1917;
+      --muted: #78716c;
+      --border: #e7e5e4;
+      --surface: #ffffff;
+      --code-bg: #1e1e2e;
+      --code-fg: #cdd6f4;
+      --accent: #dc2626;
+      --accent2: #16a34a;
+      --blue: #2563eb;
+      --amber: #d97706;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.7;
+    }
+
+    .container {
+      max-width: 740px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 6rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.03em;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 2.5rem 0 1rem;
+      letter-spacing: -0.02em;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 1.8rem 0 0.8rem;
+    }
+
+    p {
+      margin-bottom: 1rem;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2.5rem 0;
+    }
+
+    blockquote {
+      border-left: 3px solid var(--border);
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    blockquote strong {
+      color: var(--accent);
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      background: #f5f5f4;
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+    }
+
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1.25rem 1.5rem;
+      border-radius: 10px;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0;
+      font-size: 0.9rem;
+    }
+
+    th {
+      text-align: left;
+      font-weight: 600;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 2px solid var(--fg);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+
+    td {
+      padding: 0.55rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .neg {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .pos {
+      color: var(--accent2);
+      font-weight: 600;
+    }
+
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+    }
+
+    .result-card h3 {
+      margin-top: 0;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .metric {
+      text-align: center;
+      padding: 1rem;
+      border-radius: 8px;
+      background: var(--bg);
+    }
+
+    .metric .value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    .metric .label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 0.25rem;
+    }
+
+    .before {
+      border-left: 3px solid var(--accent);
+    }
+
+    .after {
+      border-left: 3px solid var(--accent2);
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.15em 0.5em;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .tag-red {
+      background: #fef2f2;
+      color: var(--accent);
+    }
+
+    .tag-green {
+      background: #f0fdf4;
+      color: var(--accent2);
+    }
+
+    .tag-amber {
+      background: #fffbeb;
+      color: var(--amber);
+    }
+
+    ul {
+      margin: 0.5rem 0 1rem 1.5rem;
+    }
+
+    li {
+      margin-bottom: 0.4rem;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 1rem;
+      margin-top: -1rem;
+      margin-bottom: 2rem;
+    }
+
+    .text-red {
+      color: #f38ba8;
+    }
+
+    .text-green {
+      color: #a6e3a1;
+    }
+
+    .callout {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--amber);
+      border-radius: 0 8px 8px 0;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+      font-size: 0.9rem;
+    }
+
+    .callout strong {
+      color: var(--amber);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+
+    <h1>Iterative Refinement of a Multi-Agent Pipeline: A Case Study</h1>
+    <p class="subtitle">Using counterfactual evaluation to isolate and resolve cascading failures in LLM systems.</p>
+
+    <p>Most of software engineering is an iterative practice of evaluation and debugging. You build a system, measure
+      how it performs, find what's broken, fix it, and measure again. We've always had this loop for traditional ML
+      systems: train a model, evaluate on a held-out set, inspect the errors, retrain. For multi-agent systems, the
+      evaluation part is starting to mature, but the <a
+        href="https://aryatafvizi.substack.com/p/beyond-tracing-understanding-multi">debugging part has lagged
+        behind</a>. When a pipeline of 8 LLM-powered agents produces a wrong answer, the trace tells you every agent
+      passed. It doesn't tell you which agent to fix.</p>
+
+    <p>At Google, we relied on established workflows to make ML systems for Search highly deterministic and
+      controllable. Those tools didn't exist at DeepMind, and they are largely missing from today's multi-agent
+      ecosystems. I'm working to create the science and tools to bring that same rigor to AI systems. (For background on
+      why <a href="https://aryatafvizi.substack.com/p/emergent-complex-behavior-in-simple">emergent behavior in
+        multi-agent systems</a> makes this kind of tooling necessary, see the previous posts.) The <a
+        href="https://github.com/counterfact-labs/counterfact">counterfact</a> tool we use below is a step in that
+      direction.</p>
+
+    <p>The key advantage of counterfactual attribution: it analyzes multiple failure modes simultaneously and tells you
+      where to invest your debugging time. Reading a single trace through many agents is already a cumbersome task for
+      an engineer. Reading dozens of traces is worse, and each one may point at a different agent as the culprit. As <a
+        href="#llm-baseline">shown later in this post</a>, standard LLM-based trace analysis fails to identify cascading
+      errors, confusing correlation with causation. Counterfact evaluates every possible combination of agents in minutes and returns a quantitative,
+      causal report: not "this agent looks suspicious" but "this agent degrades precision by 0.236 on average across
+      your eval set."</p>
+
+    <p>Below, we walk through this workflow on an 8-agent financial RAG pipeline using <a
+        href="https://github.com/counterfact-labs/counterfact">counterfact</a>: identify the failure, diagnose it with
+      Shapley attribution, apply fixes one at a time, and re-run the diagnosis after each step to verify improvement and
+      re-prioritize.</p>
+
+    <h2>The Pipeline</h2>
+
+    <p>This is a sequential pipeline: each agent receives the output of all previous agents and adds its own
+      contribution to the shared state. The first four agents prepare data (parsing the question, retrieving the
+      document, extracting numbers, adding context). The second four progressively refine a single <code>analysis</code>
+      field (synthesizing an answer, verifying it, editing the tone, formatting the output). A full execution trace with
+      inputs and outputs for each agent is included in the <a href="#appendix">appendix</a>.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Agent</th>
+          <th>Model</th>
+          <th>Role</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><strong>Query Parser</strong></td>
+          <td>Haiku</td>
+          <td>Extracts company, metric, period, classifies query type</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><strong>Doc Retriever</strong></td>
+          <td>&mdash;</td>
+          <td>Returns the relevant 10-K filing section</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><strong>Table Extractor</strong></td>
+          <td>Haiku</td>
+          <td>Parses the financial statement into structured numbers</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><strong>Context Enricher</strong></td>
+          <td>Haiku</td>
+          <td>Adds industry benchmarks and peer comparisons</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><strong>Synthesizer</strong></td>
+          <td>Sonnet</td>
+          <td>Generates the natural language answer</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td><strong>Fact Checker</strong></td>
+          <td>Haiku</td>
+          <td>Verifies claims against the source, rewrites if needed</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td><strong>Tone Editor</strong></td>
+          <td>Haiku</td>
+          <td>Rewrites for an executive audience</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td><strong>Output Formatter</strong></td>
+          <td>Haiku</td>
+          <td>Adds structure and headers</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>Every prompt contains a common practice: relying on the LLM for reasoning or world knowledge. This is a
+      discouraged shortcut that often leads to subtle bugs:</p>
+    <ul>
+      <li><strong>Table Extractor</strong>: <em>"Present values in a clean, readable format."</em></li>
+      <li><strong>Context Enricher</strong>: <em>"Based on your knowledge, add relevant industry context."</em> (<a
+          href="#appendix-context-enricher">see trace</a>)</li>
+      <li><strong>Fact Checker</strong>: <em>"Minor rounding differences and presentation choices are acceptable."</em>
+        (<a href="#appendix-fact-checker">see trace</a>)</li>
+      <li><strong>Tone Editor</strong>: <em>"Simplify large numbers for readability."</em> (<a
+          href="#appendix-tone-editor">see trace</a>)</li>
+    </ul>
+    <p>No obviously wrong instructions. The bugs are in how Claude interprets these subjective terms and in
+      architectural decisions like letting an LLM generate context from training data rather than a verified source.</p>
+
+    <hr>
+
+    <h2>The Failure</h2>
+
+    <p>We ran the pipeline on 5 FinanceBench questions from 3M's FY2018 cash flow statement. The correct answer for each
+      is a single dollar figure from the 10-K filing.</p>
+
+    <div class="callout"><strong>Evaluation criteria:</strong> For this evaluation, we enforce strict classification:
+      exact figures, exact units, and zero fabricated claims. Financial figures must be precise enough to audit back to
+      the source document. This strictness eliminates ambiguity in the before-and-after comparison.</div>
+
+    <table style="font-size:0.85rem">
+      <thead>
+        <tr>
+          <th style="width:15%">Query</th>
+          <th style="width:12%">Correct</th>
+          <th>Pipeline Output</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>CapEx</strong></td>
+          <td>$1,577M</td>
+          <td>3M invested <strong class="neg">$1.6 billion</strong> in capital expenditures during FY2018. At 3.5% of
+            revenue, 3M's capex intensity aligns with <em>peer diversified industrials such as Honeywell and Illinois
+              Tool Works.</em></td>
+        </tr>
+        <tr>
+          <td><strong>D&amp;A</strong></td>
+          <td>$1,488M</td>
+          <td>3M recorded <strong class="neg">~$1.5 billion</strong> in depreciation and amortization during FY2018.
+            <em>Broadly consistent with peers in the diversified industrials sector, where D&amp;A typically ranges from
+              4-6% of revenue.</em>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>OpCF</strong></td>
+          <td>$6,439M</td>
+          <td>3M generated <strong class="neg">~$6.4 billion</strong> in net cash from operations in FY2018. <em>This
+              positions 3M favorably relative to industrial peers such as Honeywell ($6.8B) and Emerson Electric
+              ($2.9B).</em></td>
+        </tr>
+        <tr>
+          <td><strong>Dividends</strong></td>
+          <td>$3,193M</td>
+          <td>3M distributed <strong class="neg">~$3.2 billion</strong> in dividends during FY2018. <em>At a payout
+              ratio of approximately 60%, 3M's dividend commitment exceeds peers like Illinois Tool Works (~50%) and
+              Emerson (~45%).</em></td>
+        </tr>
+        <tr>
+          <td><strong>Buybacks</strong></td>
+          <td>$4,870M</td>
+          <td>3M repurchased <strong class="neg">~$4.9 billion</strong> in common stock during FY2018. <em>Combined with
+              $3.2B in dividends, total capital returned exceeded $8 billion, placing 3M among the most aggressive
+              capital return programs in the industrial sector.</em></td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="color:var(--muted);font-size:0.85rem;margin-top:0.5rem">Bold red = wrong figure. Italics = fabricated
+      claims from Claude's training data, not in the source document.</p>
+
+    <p>Every answer follows the same pattern: exact figures from the 10-K are rounded and converted from millions to
+      billions, and each response includes fabricated peer comparisons. All eight agents pass in every trace. Nothing
+      indicates which agent introduced the rounding or the fabricated claims.</p>
+
+    <hr>
+
+    <h2>Diagnosis: 5-Query Aggregate Shapley Attribution</h2>
+
+    <p><a href="https://github.com/counterfact-labs/counterfact">Counterfact</a> ablates each agent in every possible
+      coalition, re-runs the pipeline with real Claude calls, and computes Shapley values. Three classifiers score each
+      run:</p>
+    <ul>
+      <li><strong>Accuracy</strong>: Does the output contain the correct dollar figure?</li>
+      <li><strong>Precision</strong>: Are the numbers exact, not rounded?</li>
+      <li><strong>Grounding</strong>: Are all claims traceable to the source document?</li>
+    </ul>
+
+    <p>Each classifier scores on a 0-to-1 scale. Average quality is the weighted mean of the three: accuracy (weight
+      2.0), precision (1.5), grounding (1.0). A perfect pipeline scores 1.0.</p>
+
+    <p>36 coalition evaluations per query, 5 queries run in parallel:</p>
+
+    <pre><code>Avg baseline quality: 0.378
+
+Agent                  Avg Shapley
+──────────────────────────────────────────
+tone_editor            <span class="text-red">-0.088</span>  █          ← most harmful
+context_enricher       <span class="text-red">-0.061</span>  █
+table_extractor        -0.047
+query_parser           +0.029
+fact_checker           +0.065  █
+output_formatter       +0.134  ██
+synthesizer            +0.160  ███
+doc_retriever          <span class="text-green">+0.250</span>  ████       ← most helpful</code></pre>
+
+    <h3>Per-Classifier Breakdown</h3>
+    <pre><code>accuracy  : table_extractor=<span class="text-red">-0.049</span>    ...  doc_retriever=<span class="text-green">+0.250</span>
+precision : tone_editor=<span class="text-red">-0.236</span>        ...  doc_retriever=<span class="text-green">+0.250</span>
+grounding : query_parser=<span class="text-red">-0.224</span>      ...  synthesizer=<span class="text-green">+0.160</span></code></pre>
+
+    <p>Each classifier surfaces a different bottleneck:</p>
+    <ul>
+      <li><strong>Accuracy</strong>: The <strong>table extractor</strong> is the worst agent (-0.049). Its "clean,
+        readable format" instruction rounds source figures before downstream agents see them.</li>
+      <li><strong>Precision</strong>: The <strong>tone editor</strong> is the worst agent (-0.236). "Simplify large
+        numbers" triggers M-to-B unit conversion, the single largest source of precision loss.</li>
+      <li><strong>Grounding</strong>: The <strong>query parser</strong> is the worst agent (-0.224). Misclassifying
+        queries as "estimation" rather than "lookup" causes the synthesizer to approximate rather than cite exact
+        figures.</li>
+    </ul>
+
+    <p>No single agent is the worst on every classifier. A single-metric evaluation would have prioritized the wrong
+      fix.</p>
+
+    <hr>
+
+    <h2>Iterative Debugging in Action</h2>
+
+    <p>The diagnosis points at three agents to fix. We apply these prompt edits cumulatively, isolating variables and
+      re-running the Shapley diagnosis after each fix to measure the marginal impact.</p>
+
+    <h3>The three prompt edits</h3>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Agent</th>
+          <th>Before</th>
+          <th>After</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Context Enricher</strong></td>
+          <td>"Based on your knowledge, add industry context"</td>
+          <td>"Using ONLY the provided data. Do NOT add external benchmarks"</td>
+        </tr>
+        <tr>
+          <td><strong>Tone Editor</strong></td>
+          <td>"Simplify large numbers for readability"</td>
+          <td>"Preserve exact figures and units. Do NOT convert"</td>
+        </tr>
+        <tr>
+          <td><strong>Fact Checker</strong></td>
+          <td>"Minor rounding differences acceptable"</td>
+          <td>"Flag any figure differing by &gt;$1M. Identify discrepancies"</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Step 0: Broken pipeline</h3>
+
+    <div class="result-card before">
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="value" style="color:var(--accent)">0.378</div>
+          <div class="label">Avg Quality</div>
+        </div>
+        <div class="metric">
+          <div class="value" style="color:var(--accent)">0/5</div>
+          <div class="label">Exact Answers</div>
+        </div>
+      </div>
+      <pre><code>Agent                  Avg Shapley
+──────────────────────────────────────────
+tone_editor            <span class="text-red">-0.088</span>  █
+context_enricher       <span class="text-red">-0.061</span>  █
+table_extractor        -0.047
+query_parser           +0.029
+fact_checker           +0.065  █
+output_formatter       +0.134  ██
+synthesizer            +0.160  ███
+doc_retriever          +0.250  ████
+
+Per-classifier worst:
+  accuracy:   table_extractor  -0.049
+  precision:  tone_editor      <span class="text-red">-0.236</span>
+  grounding:  query_parser     <span class="text-red">-0.224</span></code></pre>
+    </div>
+
+    <h3>Step 1: Fix context enricher</h3>
+
+    <div class="result-card">
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="value" style="color:var(--accent)">0.356</div>
+          <div class="label">Avg Quality</div>
+        </div>
+        <div class="metric">
+          <div class="value" style="color:var(--accent)">0/5</div>
+          <div class="label">Exact Answers</div>
+        </div>
+      </div>
+      <p>Quality didn't improve. The context enricher fix removed the fabricated benchmarks, but the tone editor is
+        still converting millions to billions, which destroys precision on every query. Removing the fabricated context
+        actually made the synthesizer lean harder on rounded numbers from the table extractor, which the tone editor
+        then amplifies.</p>
+      <pre><code>Agent                  Avg Shapley
+──────────────────────────────────────────
+tone_editor            <span class="text-red">-0.107</span>  ██   ← worse than before
+table_extractor        -0.020
+context_enricher       +0.002       ← fixed, now neutral
+query_parser           +0.061  █
+synthesizer            +0.069  █
+output_formatter       +0.074  █
+fact_checker           +0.137  ██
+doc_retriever          +0.183  ███
+
+Per-classifier worst:
+  accuracy:   context_enricher -0.115
+  precision:  tone_editor      <span class="text-red">-0.219</span>  (still dominant)
+  grounding:  synthesizer      -0.216</code></pre>
+      <p>The tool now tells us: fix the tone editor next.</p>
+    </div>
+
+    <h3>Step 2: + Fix tone editor</h3>
+
+    <div class="result-card after">
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="value" style="color:var(--accent2)">0.747</div>
+          <div class="label">Avg Quality</div>
+        </div>
+        <div class="metric">
+          <div class="value" style="color:var(--accent2)">4/5</div>
+          <div class="label">Exact Answers</div>
+        </div>
+      </div>
+      <p>Preventing M-to-B conversion is the primary bottleneck. This single edit improves exact matches from 0/5 to 4/5
+        and nearly doubles average quality.</p>
+      <pre><code>Agent                  Avg Shapley
+──────────────────────────────────────────
+context_enricher       <span class="text-red">-0.057</span>  █    ← re-emerges
+fact_checker           -0.012
+query_parser           -0.009
+tone_editor            -0.006       ← fixed, now neutral
+synthesizer            +0.007
+table_extractor        +0.008
+output_formatter       +0.092  █
+doc_retriever          +0.163  ███
+
+Per-classifier worst:
+  accuracy:   context_enricher -0.193
+  precision:  context_enricher -0.127
+  grounding:  synthesizer      <span class="text-red">-0.259</span></code></pre>
+      <p>With tone fixed, the context enricher surfaces again as worst on accuracy and precision. The synthesizer is
+        worst on grounding. One query (OpCF) still returns "$6.4 billion."</p>
+    </div>
+
+    <h3>Step 3: + Fix fact checker</h3>
+
+    <div class="result-card after">
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="value" style="color:var(--accent2)">0.836</div>
+          <div class="label">Avg Quality</div>
+        </div>
+        <div class="metric">
+          <div class="value" style="color:var(--accent2)">4/5</div>
+          <div class="label">Exact Answers</div>
+        </div>
+      </div>
+      <p>The stricter fact checker catches the remaining rounding error on OpCF and corrects fabricated context that
+        slipped through. But Buybacks still returns "$4.87 billion." The per-query Shapley points at the table
+        extractor: its "clean, readable format" instruction rounds $4,870 before downstream agents even see it.</p>
+      <pre><code>Agent                  Avg Shapley
+──────────────────────────────────────────
+context_enricher       -0.015
+query_parser           -0.005
+synthesizer            +0.012
+output_formatter       +0.022
+doc_retriever          +0.025
+tone_editor            +0.026
+fact_checker           +0.032
+table_extractor        +0.063  █
+
+All agents within [-0.015, +0.063]</code></pre>
+    </div>
+
+    <h3>Step 4: + Fix table extractor</h3>
+
+    <div class="result-card after">
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="value" style="color:var(--accent2)">0.822</div>
+          <div class="label">Avg Quality</div>
+        </div>
+        <div class="metric">
+          <div class="value" style="color:var(--accent2)">5/5</div>
+          <div class="label">Exact Answers</div>
+        </div>
+      </div>
+      <p>"Present values in a clean, readable format" &rarr; "Present exact values as reported in the source document.
+        Do NOT round." Buybacks now returns "$4,870 million." All five queries produce exact answers.</p>
+      <pre><code>Agent                  Avg Shapley
+──────────────────────────────────────────
+query_parser           -0.061  █
+table_extractor        +0.003
+context_enricher       +0.022
+tone_editor            +0.026
+output_formatter       +0.088  █
+synthesizer            +0.092  █
+fact_checker           +0.103  ██
+doc_retriever          +0.137  ██
+
+No agent degrading quality beyond noise</code></pre>
+    </div>
+
+    <h3>Incremental summary</h3>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th>Fix applied</th>
+          <th>Avg Quality</th>
+          <th>Exact</th>
+          <th>Delta</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>0</td>
+          <td>None (broken baseline)</td>
+          <td class="neg">0.378</td>
+          <td>0/5</td>
+          <td>&mdash;</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>Context enricher</td>
+          <td class="neg">0.356</td>
+          <td>0/5</td>
+          <td>-0.022</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>+ Tone editor</td>
+          <td class="pos">0.747</td>
+          <td>4/5</td>
+          <td>+0.391</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>+ Fact checker</td>
+          <td class="pos">0.836</td>
+          <td>4/5</td>
+          <td>+0.089</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>+ Table extractor</td>
+          <td class="pos">0.822</td>
+          <td>5/5</td>
+          <td>-0.014</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>By addressing the root causal bottlenecks rather than the symptoms, four prompt edits doubled the pipeline's overall quality and achieved 5/5 exact answers.</p>
+
+    <hr>
+
+    <h2>Key Takeaways</h2>
+
+    <blockquote><strong>Semantic correctness does not guarantee behavioral correctness.</strong> "Minor rounding differences are acceptable" and "simplify large numbers" are reasonable instructions. The failures are in how Claude interprets these subjective terms at inference time.</blockquote>
+
+    <ol style="margin-left:1.5rem">
+      <li style="margin-bottom:0.8rem"><strong>The worst agent varies by query.</strong> On CapEx, the query parser is
+        worst. On Dividends, it's the table extractor. On OpCF, it's the synthesizer. A single-query evaluation would
+        have prioritized the wrong fix.</li>
+      <li style="margin-bottom:0.8rem"><strong>Agent fixes interact.</strong> Fixing the context enricher alone made
+        quality worse (-0.022), because the tone editor was still converting M to B. The tool detects this: after Step
+        1, it re-prioritizes tone editor as the worst agent.</li>
+      <li style="margin-bottom:0.8rem"><strong>Diagnosis is state-dependent.</strong> After fixing the tone editor in
+        Step 2, the context enricher re-emerges as the worst agent on accuracy and precision. The diagnostic loop
+        surfaces whatever matters most given the current state of the pipeline.</li>
+      <li style="margin-bottom:0.8rem"><strong>Four prompt edits doubled quality.</strong> The diagnosis identified
+        which four prompts to rewrite, in what order, and which quality dimension each was degrading.</li>
+    </ol>
+
+    <hr>
+
+    <h2 id="llm-baseline">Baseline: Can an LLM Diagnose This From Traces?</h2>
+
+    <p>We gave Claude Sonnet all 5 execution traces (every agent's prompt and output) plus the classifier scores and
+      asked it to rank the agents by severity. Here's what it returned:</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>LLM Diagnosis</th>
+          <th>Shapley Attribution</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td class="pos">tone_editor ✓</td>
+          <td>tone_editor (-0.088)</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td class="pos">context_enricher ✓</td>
+          <td>context_enricher (-0.061)</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td class="neg">output_formatter ✗</td>
+          <td>table_extractor (-0.047)</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>fact_checker</td>
+          <td>fact_checker (+0.065)</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td class="neg">synthesizer ✗</td>
+          <td>(not flagged)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>The LLM gets the top two right. After that, it diverges.</p>
+
+    <h3>Where it goes wrong</h3>
+
+    <ol style="margin-left:1.5rem">
+      <li style="margin-bottom:0.8rem"><strong>Confuses correlation with causation.</strong> The LLM ranks
+        <code>output_formatter</code> #3 because it "displays rounded numbers." But Shapley shows output_formatter has a
+        <em>positive</em> contribution (+0.134). It's not causing the rounding; it's just receiving already-rounded
+        input from the tone editor. The LLM can't distinguish "this agent received bad data" from "this agent caused bad
+        data."
+      </li>
+
+      <li style="margin-bottom:0.8rem"><strong>Misses the table extractor.</strong> Shapley ranks
+        <code>table_extractor</code> #3 because its "clean, readable format" instruction rounds $1,577 to $1,600 before
+        any downstream agent sees it. The LLM never flags this because the table extractor's output looks reasonable in
+        the trace. You can only detect its impact by removing it and seeing what changes.
+      </li>
+
+      <li style="margin-bottom:0.8rem"><strong>Can't predict interaction effects.</strong> The LLM would suggest fixing
+        context_enricher and tone_editor independently. It has no way to know that fixing context_enricher alone makes
+        quality <em>worse</em> (-0.022) because the tone editor is still converting M to B. Shapley catches this because
+        it tests every combination of agents.</li>
+
+      <li style="margin-bottom:0.8rem"><strong>Blames agents that are helping.</strong> The LLM flags
+        <code>synthesizer</code> as #5, but Shapley shows synthesizer has a strongly positive contribution (+0.160).
+        Removing it would make the pipeline worse, not better.
+      </li>
+    </ol>
+
+    <p>The LLM diagnosis is plausible, well-reasoned, and partially correct. That's exactly what makes it dangerous: an
+      engineer reading it would feel confident acting on it, but two of the five recommendations would either waste time
+      (output_formatter) or actively degrade the pipeline (synthesizer). Causal attribution avoids this by testing each
+      agent's actual marginal contribution rather than reasoning about what <em>looks</em> wrong in a trace.</p>
+
+    <hr>
+
+    <h2>Reproduce It</h2>
+
+    <pre><code>pip install "counterfact[anthropic] @ git+https://github.com/counterfact-labs/counterfact.git"
+export ANTHROPIC_API_KEY=...
+
+# Diagnose the broken pipeline
+python examples/financebench_diagnose.py
+
+# Incremental fix cycle (Steps 0-4)
+python examples/financebench_improve_prompts.py</code></pre>
+
+    <p>Source: <a href="https://github.com/counterfact-labs/counterfact">counterfact-labs/counterfact</a>. Claude Sonnet
+      4.6 (synthesizer) + Claude Haiku 4.5 (all other agents).</p>
+
+    <hr>
+
+    <h2 id="appendix">Appendix: Full Execution Trace (CapEx Query)</h2>
+
+    <p>Input/output for each agent on the query: <em>"What is the FY2018 capital expenditure amount (in USD millions)
+        for 3M?"</em></p>
+
+    <div class="result-card">
+      <h3>1. Query Parser <span class="tag tag-amber">Haiku</span></h3>
+      <p><strong>Prompt</strong>:</p>
+      <pre><code>Parse this financial question into structured components.
+
+QUESTION: What is the FY2018 capital expenditure amount (in USD millions)
+for 3M? Use the cash flow statement.
+
+Extract:
+- company: the company name
+- metric: what financial metric is being asked about
+- period: the fiscal period
+- query_type: classify as "lookup" (retrieving a specific reported figure)
+  or "estimation" (computing or approximating a figure)
+
+Respond with JSON only:</code></pre>
+      <p><strong>Output</strong>:</p>
+      <pre><code>{"company":"3M","metric":"capital expenditure","period":"FY2018","query_type":"estimation"}</code></pre>
+      <p style="color:var(--muted);font-size:0.85rem">Classified as "estimation" instead of "lookup." Claude associates
+        "expenditure" with budgeting.</p>
+    </div>
+
+    <div class="result-card">
+      <h3>2. Doc Retriever <span class="tag" style="background:#f5f5f4;color:var(--muted)">No LLM</span></h3>
+      <p><strong>Logic</strong>: Returns <code>state["source_document"]</code> directly. No prompt.</p>
+      <pre><code>Output: 3M Company — Consolidated Statement of Cash Flows (Millions)
+  Purchases of PP&amp;E: (1,577) / (1,373) / (1,420)
+  Repurchases of common stock: (4,870) / (2,068) / (3,753)
+  Dividends paid: (3,193) / (2,803) / (2,678)  ...</code></pre>
+    </div>
+
+    <div class="result-card">
+      <h3>3. Table Extractor <span class="tag tag-amber">Haiku</span></h3>
+      <p><strong>Prompt</strong>:</p>
+      <pre><code>Extract the requested financial data from the table below.
+
+QUERY: {"company":"3M","metric":"capital expenditure","period":"FY2018",...}
+FINANCIAL TABLE: [cash flow statement]
+
+Instructions:
+1. Identify the line item that best matches the requested metric.
+2. Extract values for all available years.
+3. Present values in a clean, readable format.
+4. Note which specific line item you matched.</code></pre>
+      <p><strong>Output</strong>:</p>
+      <pre><code>{"line_item":"Purchases of property, plant and equipment",
+ "values":{"2018":"$1,600M","2017":"$1,400M","2016":"$1,400M"},
+ "unit":"millions"}</code></pre>
+      <p style="color:var(--muted);font-size:0.85rem">$1,577M → $1,600M. "Clean, readable format" interpreted as
+        rounding.</p>
+    </div>
+
+    <div class="result-card" id="appendix-context-enricher">
+      <h3>4. Context Enricher <span class="tag tag-amber">Haiku</span></h3>
+      <p><strong>Prompt</strong>:</p>
+      <pre><code>You are a financial analyst adding industry context to a data extraction.
+
+EXTRACTED DATA: {"line_item":"Purchases of PP&amp;E","values":{"2018":"$1,600M",...}}
+COMPANY AND METRIC: {"company":"3M","metric":"capital expenditure",...}
+
+Based on your knowledge of the industrial sector, add 2-3 sentences of
+relevant context:
+- How does this figure compare to industry peers?
+- What are typical ranges for this metric in the sector?
+- Any notable trends?
+
+Output the original extracted data followed by your context paragraph.</code></pre>
+      <p><strong>Output</strong>:</p>
+      <pre><code>{extracted data}
+
+Industry Context: 3M's capital expenditure of ~$1,600M positions it
+competitively. Peer comparisons: Honeywell (~$1,890M), Illinois Tool
+Works (~$780M), Emerson (~$620M). CapEx intensity ~3.5% of revenue
+vs. sector median of 6.1%.</code></pre>
+      <p style="color:var(--muted);font-size:0.85rem">All peer figures and sector averages generated from training data.
+        None verifiable.</p>
+    </div>
+
+    <div class="result-card">
+      <h3>5. Synthesizer <span class="tag tag-amber">Sonnet</span></h3>
+      <p><strong>Prompt</strong>:</p>
+      <pre><code>Answer this financial question based on the provided data.
+
+QUESTION: What is the FY2018 capital expenditure amount (in USD millions) for 3M?
+EXTRACTED DATA: {"values":{"2018":"$1,600M",...}}
+INDUSTRY CONTEXT: {data + peer benchmarks from context enricher}
+APPROACH: Provide your best estimate or approximate figure based on the data.
+
+Write a 2-paragraph professional response.</code></pre>
+      <p style="color:var(--muted);font-size:0.85rem">APPROACH says "estimate" because query parser classified as
+        "estimation."</p>
+      <p><strong>Output</strong>:</p>
+      <pre><code>3M invested approximately $1,600 million in capital expenditures during
+FY2018, representing a ~15% increase from $1,400 million in FY2017.
+
+At 3.5% of revenue, 3M's capex intensity aligns with peer diversified
+industrials such as Honeywell (~$1,890M) and Illinois Tool Works (~$780M).</code></pre>
+    </div>
+
+    <div class="result-card" id="appendix-fact-checker">
+      <h3>6. Fact Checker <span class="tag tag-amber">Haiku</span></h3>
+      <p><strong>Prompt</strong>:</p>
+      <pre><code>Review this financial analysis for accuracy against the source document.
+
+ANALYSIS: 3M invested approximately $1,600 million...
+SOURCE DOCUMENT: [cash flow statement showing $1,577M]
+
+Verification guidelines:
+- Check that key financial figures are consistent with the source
+- Minor rounding differences and presentation choices are acceptable
+- Focus on material accuracy
+- Industry context and peer comparisons do not need source verification
+
+If the key claims check out, output the verified analysis with any
+minor corrections applied.</code></pre>
+      <p><strong>Output</strong>:</p>
+      <pre><code>[Verified. ~$1,600M is consistent with source value $1,577M (within
+acceptable rounding). Industry comparisons do not require verification.
+No material corrections needed.]
+
+3M invested approximately $1,600 million...</code></pre>
+      <p style="color:var(--muted);font-size:0.85rem">$23M difference accepted as "minor rounding." Confirmation framing
+        primes Claude to approve.</p>
+    </div>
+
+    <div class="result-card" id="appendix-tone-editor">
+      <h3>7. Tone Editor <span class="tag tag-amber">Haiku</span></h3>
+      <p><strong>Prompt</strong>:</p>
+      <pre><code>Edit this financial analysis for a senior executive audience.
+
+ANALYSIS: 3M invested approximately $1,600 million...
+
+Style guidelines:
+- Lead with the most important finding
+- Simplify large numbers for readability
+- Focus on the headline number and strategic implications
+- Remove granular year-over-year details unless the change is dramatic
+- Maximum 2 concise paragraphs</code></pre>
+      <p><strong>Output</strong>:</p>
+      <pre><code>3M deployed $1.6 billion in capital expenditures during FY2018,
+underscoring the company's strategic commitment to manufacturing
+infrastructure. This investment positions 3M competitively, exceeding
+peers such as Illinois Tool Works ($0.8 billion) and Emerson ($0.6 billion).</code></pre>
+      <p style="color:var(--muted);font-size:0.85rem">$1,600M → $1.6B under "simplify large numbers." YoY dropped (15%
+        not "dramatic").</p>
+    </div>
+
+    <div class="result-card">
+      <h3>8. Output Formatter <span class="tag tag-amber">Haiku</span></h3>
+      <p><strong>Prompt</strong>:</p>
+      <pre><code>Format this financial analysis as a clean, structured response.
+Do not modify any numbers, claims, or substance.
+
+ANALYSIS: 3M deployed $1.6 billion in capital expenditures...
+
+Add a header with company name and metric.
+Add "Source: Company 10-K Filing" at the end.</code></pre>
+      <p><strong>Output</strong>:</p>
+      <pre><code># 3M Company | FY2018 Capital Expenditure Analysis
+
+3M deployed $1.6 billion in capital expenditures during FY2018...
+
+Source: Company 10-K Filing</code></pre>
+      <p style="color:var(--muted);font-size:0.85rem">Formatting only. No numbers changed.</p>
+    </div>
+
+  </div>
+</body>
+
+</html>
