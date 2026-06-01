@@ -78,6 +78,9 @@ from counterfact.optimizer import (
     TrialResult as OptTrialResult,
 )
 
+# ─── Neutral spec IR + dataset diagnosis (for external orchestrators) ────
+from counterfact.orchestration import diagnose_dataset
+
 # ─── Perturbation (Monte Carlo simulation) ───────────────────────────────
 from counterfact.perturbation import (
     generate_perturbations,
@@ -104,6 +107,12 @@ from counterfact.recommendations import (
     generate_agent_spec,
     generate_recommendations,
     rank_recommendations,
+)
+from counterfact.spec import (
+    EdgeSpec,
+    GraphSpec,
+    NodeSpec,
+    build_graph_from_spec,
 )
 
 # ─── Tool Tracing (thinking model tool call capture) ─────────────────────
@@ -141,45 +150,95 @@ __version__ = "0.1.0"
 
 __all__ = [
     # Core
-    "StateGraph", "CounterfactualGraph", "END", "START", "TracingContext",
+    "StateGraph",
+    "CounterfactualGraph",
+    "END",
+    "START",
+    "TracingContext",
+    # Neutral spec IR + dataset diagnosis (external orchestration)
+    "build_graph_from_spec",
+    "diagnose_dataset",
+    "GraphSpec",
+    "NodeSpec",
+    "EdgeSpec",
     # Types
-    "TraceEntry", "ClassifierResult", "EvalResult", "EvalSuite",
-    "Perturbation", "SimulationResult", "FailureClassification",
-    "Recommendation", "EvaluationResult", "AgentProfile", "PerturbationPlan",
-    "AgentSpec", "FixConstraint",
-    "PromptSection", "ToolCall", "PlanStep", "PromptAnalysisResult",
+    "TraceEntry",
+    "ClassifierResult",
+    "EvalResult",
+    "EvalSuite",
+    "Perturbation",
+    "SimulationResult",
+    "FailureClassification",
+    "Recommendation",
+    "EvaluationResult",
+    "AgentProfile",
+    "PerturbationPlan",
+    "AgentSpec",
+    "FixConstraint",
+    "PromptSection",
+    "ToolCall",
+    "PlanStep",
+    "PromptAnalysisResult",
     "ClassifierFn",
     # Evals
-    "run_eval_suite", "run_structural_checks", "run_consistency_checks",
-    "check_empty_outputs", "check_error_status", "check_schema_violations",
-    "check_latency_anomalies", "check_output_length_anomalies",
-    "check_duplicate_agents", "check_faithfulness",
-    "check_inter_agent_coherence", "check_grounding",
-    "check_plan_completeness", "check_tool_error_rate", "check_tool_redundancy",
+    "run_eval_suite",
+    "run_structural_checks",
+    "run_consistency_checks",
+    "check_empty_outputs",
+    "check_error_status",
+    "check_schema_violations",
+    "check_latency_anomalies",
+    "check_output_length_anomalies",
+    "check_duplicate_agents",
+    "check_faithfulness",
+    "check_inter_agent_coherence",
+    "check_grounding",
+    "check_plan_completeness",
+    "check_tool_error_rate",
+    "check_tool_redundancy",
     # Classifiers
-    "ClassifierRegistry", "register_classifier", "set_llm_caller",
+    "ClassifierRegistry",
+    "register_classifier",
+    "set_llm_caller",
     "get_default_registry",
     # Discovery
     "discover_pipeline",
     # Attribution
-    "compute_loo_attribution", "compute_shapley_values",
-    "compute_per_classifier_loo", "compute_per_classifier_shapley",
-    "classify_failure", "is_loo_inconclusive",
+    "compute_loo_attribution",
+    "compute_shapley_values",
+    "compute_per_classifier_loo",
+    "compute_per_classifier_shapley",
+    "classify_failure",
+    "is_loo_inconclusive",
     # Perturbation
-    "generate_perturbations", "run_monte_carlo",
+    "generate_perturbations",
+    "run_monte_carlo",
     # Recommendations
-    "generate_recommendations", "evaluate_recommendation",
-    "extract_empirical_fixes", "detect_coverage_gaps",
-    "generate_agent_spec", "rank_recommendations",
-    "AGENT_TEMPLATES", "CLASSIFIER_INVERSIONS",
+    "generate_recommendations",
+    "evaluate_recommendation",
+    "extract_empirical_fixes",
+    "detect_coverage_gaps",
+    "generate_agent_spec",
+    "rank_recommendations",
+    "AGENT_TEMPLATES",
+    "CLASSIFIER_INVERSIONS",
     # Diagnostics
-    "DiagnosticReport", "run_full_diagnostic",
+    "DiagnosticReport",
+    "run_full_diagnostic",
     # Prompt Analysis (thinking models)
-    "analyze_prompt", "parse_prompt_sections", "check_plan_quality",
-    "run_prompt_section_attribution", "detect_dead_sections",
+    "analyze_prompt",
+    "parse_prompt_sections",
+    "check_plan_quality",
+    "run_prompt_section_attribution",
+    "detect_dead_sections",
     "detect_conflicting_sections",
     # Tool Tracing (thinking models)
-    "ToolTracer", "tool_calls_to_trace", "perturb_tool_result",
+    "ToolTracer",
+    "tool_calls_to_trace",
+    "perturb_tool_result",
     # Optimizer
-    "optimize_pipeline", "SearchSpace", "OptimizationResult", "OptTrialResult",
+    "optimize_pipeline",
+    "SearchSpace",
+    "OptimizationResult",
+    "OptTrialResult",
 ]

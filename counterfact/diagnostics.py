@@ -66,6 +66,7 @@ class DiagnosticReport:
       - Recommended fixes
       - Evaluation of whether the fixes would work
     """
+
     query: str
     domain: str
     baseline_quality: float
@@ -109,14 +110,17 @@ class DiagnosticReport:
 
     def to_json(self, path: Optional[str] = None) -> str:
         from counterfact.export import to_json
+
         return to_json(self, path)
 
     def to_markdown(self, path: Optional[str] = None) -> str:
         from counterfact.export import to_markdown
+
         return to_markdown(self, path)
 
     def to_html(self, path: Optional[str] = None) -> str:
         from counterfact.export import to_html
+
         return to_html(self, path)
 
 
@@ -188,6 +192,7 @@ def run_full_diagnostic(
     llm_fn: Optional[Callable] = None,
     run_evals: bool = True,
     seed: Optional[int] = None,
+    quality_fn: Optional[Callable[[str, dict], float]] = None,
 ) -> DiagnosticReport:
     """
     Run the complete diagnostic pipeline with real re-execution.
@@ -213,6 +218,12 @@ def run_full_diagnostic(
         llm_fn: Custom LLM function for classifiers (prompt, temp) -> str
         run_evals: Whether to run the eval suite first
         seed: Random seed for reproducibility
+        quality_fn: Optional pluggable quality scorer
+            ``(output_text: str, full_state: dict) -> float`` in [0, 1]. When
+            provided, it REPLACES the classifier aggregate as each
+            simulation's ``quality_score`` (threaded through to
+            ``run_monte_carlo`` and the Shapley coalition re-runs). Use this
+            to drive attribution from an external labeled eval-set scorer.
 
     Returns:
         DiagnosticReport with attribution, classification, and recommendations
@@ -258,6 +269,7 @@ def run_full_diagnostic(
         registry=registry,
         llm_fn=llm_fn,
         seed=seed,
+        quality_fn=quality_fn,
     )
 
     # ── Step 3: Quality gate ─────────────────────────────────────────
@@ -273,8 +285,13 @@ def run_full_diagnostic(
         classification = _make_no_failure_classification(baseline_quality, baseline_results)
 
         summary = _build_summary(
-            sim_results, baseline_scores, baseline_quality, agents,
-            "quality_gate", True, baseline_results,
+            sim_results,
+            baseline_scores,
+            baseline_quality,
+            agents,
+            "quality_gate",
+            True,
+            baseline_results,
         )
 
         report = DiagnosticReport(
@@ -300,13 +317,11 @@ def run_full_diagnostic(
     baseline_quality_ci = compute_bootstrap_ci(baseline_scores) if baseline_scores else None
 
     # Build a trace-like structure from node names for attribution functions
-    trace_for_attribution = [
-        {"node": agent, "status": "pass", "reasoning": ""}
-        for agent in agents
-    ]
+    trace_for_attribution = [{"node": agent, "status": "pass", "reasoning": ""} for agent in agents]
 
     attribution, cis, per_clf_shapley = compute_shapley_values(
-        sim_results, trace_for_attribution,
+        sim_results,
+        trace_for_attribution,
         graph=graph,
         input_state=input_state,
         sources=sources,
@@ -321,9 +336,7 @@ def run_full_diagnostic(
     classification = classify_failure(attribution, sim_results, trace_for_attribution, per_clf_shapley, cis)
 
     # ── Step 5b: Failure-Focused Attribution (Architectural Gaps) ────
-    if (classification.failure_type == "architectural_gap"
-            and classification.failing_classifiers
-            and per_clf_shapley):
+    if classification.failure_type == "architectural_gap" and classification.failing_classifiers and per_clf_shapley:
         gap_clf_names = classification.failing_classifiers
         failure_focused = {}
         for agent in attribution:
@@ -346,11 +359,13 @@ def run_full_diagnostic(
                         for c in r.classifier_results:
                             if c.name == clf_name:
                                 b_scores = [
-                                    cc.score for br in baseline_results
-                                    for cc in br.classifier_results if cc.name == clf_name
+                                    cc.score
+                                    for br in baseline_results
+                                    for cc in br.classifier_results
+                                    if cc.name == clf_name
                                 ]
                                 b_mean = float(np.mean(b_scores)) if b_scores else 0.0
-                                ff_score += (c.score - b_mean)
+                                ff_score += c.score - b_mean
                     ff_score = ff_score / len(gap_clf_names) if gap_clf_names else 0.0
                     total_delta = r.quality_score - baseline_mean_q
                     raw_deltas.append((ff_score * 0.95) + (total_delta * 0.05))
@@ -364,15 +379,19 @@ def run_full_diagnostic(
 
     # 6a: Extract empirical fixes from simulation data
     empirical_fixes = extract_empirical_fixes(
-        sim_results, baseline_quality, trace_for_attribution,
+        sim_results,
+        baseline_quality,
+        trace_for_attribution,
     )
 
     # 6b: Detect coverage gaps and generate add-agent recommendations
     gap_fixes = []
     if classification.failure_type == "architectural_gap":
         gap_fixes = detect_coverage_gaps(
-            per_clf_shapley, classification.failing_classifiers,
-            sim_results, trace_for_attribution,
+            per_clf_shapley,
+            classification.failing_classifiers,
+            sim_results,
+            trace_for_attribution,
         )
 
     # 6c: Combine deterministic candidates
@@ -380,7 +399,12 @@ def run_full_diagnostic(
 
     if not all_candidates:
         all_candidates = generate_recommendations(
-            classification, attribution, trace_for_attribution, query, domain, llm_fn,
+            classification,
+            attribution,
+            trace_for_attribution,
+            query,
+            domain,
+            llm_fn,
         )
 
     # 6d: Rank by measured improvement
@@ -388,19 +412,29 @@ def run_full_diagnostic(
 
     # ── Step 7: Evaluate top recommendation (optional, LLM-based) ────
     evaluations = []
-    if recommendations and llm_fn and not any(
-        r.measurement_confidence == "measured" for r in recommendations
-    ):
+    if recommendations and llm_fn and not any(r.measurement_confidence == "measured" for r in recommendations):
         eval_result = evaluate_recommendation(
-            recommendations[0], trace_for_attribution, query, output_text, sources,
-            domain, num_eval_runs=3, registry=registry, llm_fn=llm_fn,
+            recommendations[0],
+            trace_for_attribution,
+            query,
+            output_text,
+            sources,
+            domain,
+            num_eval_runs=3,
+            registry=registry,
+            llm_fn=llm_fn,
         )
         evaluations.append(eval_result)
 
     # Build summary
     summary = _build_summary(
-        sim_results, baseline_scores, baseline_quality,
-        list(attribution.keys()), attribution_method, False, baseline_results,
+        sim_results,
+        baseline_scores,
+        baseline_quality,
+        list(attribution.keys()),
+        attribution_method,
+        False,
+        baseline_results,
     )
 
     report = DiagnosticReport(
@@ -426,8 +460,13 @@ def run_full_diagnostic(
 
 
 def _build_summary(
-    sim_results, baseline_scores, baseline_quality,
-    agents, attribution_method, quality_gate_passed, baseline_results,
+    sim_results,
+    baseline_scores,
+    baseline_quality,
+    agents,
+    attribution_method,
+    quality_gate_passed,
+    baseline_results,
 ) -> dict:
     """Build a summary dict for the diagnostic report."""
     return {
@@ -441,10 +480,12 @@ def _build_summary(
         "quality_gate_passed": quality_gate_passed,
         "classifiers_used": (
             [c.name for c in baseline_results[0].classifier_results]
-            if baseline_results and baseline_results[0].classifier_results else []
+            if baseline_results and baseline_results[0].classifier_results
+            else []
         ),
         "total_llm_calls": (
             len(sim_results) * len(sim_results[0].classifier_results)
-            if sim_results and sim_results[0].classifier_results else 0
+            if sim_results and sim_results[0].classifier_results
+            else 0
         ),
     }

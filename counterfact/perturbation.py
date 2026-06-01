@@ -52,12 +52,14 @@ def generate_perturbations_from_graph(
     """
     perturbations = []
     for agent in graph.get_node_names():
-        perturbations.append(Perturbation(
-            agent=agent,
-            strategy="ablate",
-            description=f"Remove {agent} — replace with no-op and re-run pipeline",
-            magnitude=1.0,
-        ))
+        perturbations.append(
+            Perturbation(
+                agent=agent,
+                strategy="ablate",
+                description=f"Remove {agent} — replace with no-op and re-run pipeline",
+                magnitude=1.0,
+            )
+        )
     return perturbations
 
 
@@ -70,16 +72,16 @@ def generate_perturbations(trace: list[dict]) -> list[Perturbation]:
     but cannot actually execute them.
     """
     perturbations = []
-    agents = list(dict.fromkeys(
-        entry["node"] for entry in trace if entry["node"] != "output"
-    ))
+    agents = list(dict.fromkeys(entry["node"] for entry in trace if entry["node"] != "output"))
     for agent in agents:
-        perturbations.append(Perturbation(
-            agent=agent,
-            strategy="ablate",
-            description=f"Remove {agent} from the pipeline — measure its marginal contribution",
-            magnitude=1.0,
-        ))
+        perturbations.append(
+            Perturbation(
+                agent=agent,
+                strategy="ablate",
+                description=f"Remove {agent} from the pipeline — measure its marginal contribution",
+                magnitude=1.0,
+            )
+        )
     return perturbations
 
 
@@ -122,8 +124,14 @@ def _extract_final_output(result: dict) -> str:
 
     # Try common output keys
     for key in [
-        "final_output", "output", "response", "answer", "result",
-        "synthesis", "text", "content",
+        "final_output",
+        "output",
+        "response",
+        "answer",
+        "result",
+        "synthesis",
+        "text",
+        "content",
     ]:
         if key in result and isinstance(result[key], str):
             return result[key]
@@ -174,6 +182,27 @@ def run_coalition(
     return output_text, trace
 
 
+def _run_coalition_full(
+    graph: "CounterfactualGraph",
+    coalition: frozenset,
+    input_state: dict,
+) -> tuple[str, list[dict], dict]:
+    """Like :func:`run_coalition` but also returns the full result state.
+
+    Internal helper used by ``run_monte_carlo`` so a pluggable ``quality_fn``
+    can receive the complete final state, not just the output text. Kept
+    separate so the public ``run_coalition`` signature stays unchanged.
+    """
+    all_agents = set(graph.get_node_names())
+    agents_to_ablate = all_agents - coalition
+    perturbed = graph
+    for agent in agents_to_ablate:
+        perturbed = perturbed.clone_with_ablation(agent)
+    result, trace = _run_pipeline_safe(perturbed, input_state)
+    output_text = _extract_final_output(result)
+    return output_text, trace, result
+
+
 # ═════════════════════════════════════════════════════════════════════════
 # MONTE CARLO SIMULATION ENGINE
 # Run many real re-executions and measure quality.
@@ -190,6 +219,7 @@ def run_monte_carlo(
     registry=None,
     llm_fn: Optional[Callable] = None,
     seed: Optional[int] = None,
+    quality_fn: Optional[Callable[[str, dict], float]] = None,
 ) -> list[SimulationResult]:
     """
     Run Monte Carlo simulations with real pipeline re-execution.
@@ -214,6 +244,12 @@ def run_monte_carlo(
         registry: ClassifierRegistry instance (uses default if None)
         llm_fn: LLM function for quality classifiers
         seed: Random seed for reproducibility
+        quality_fn: Optional pluggable scorer
+            ``(output_text: str, full_state: dict) -> float`` in [0, 1]. When
+            provided, its return value REPLACES the classifier aggregate as
+            each simulation's ``quality_score``. Classifiers still run so that
+            per-classifier diagnostics remain populated; only the scalar
+            quality used for attribution changes.
     """
     from counterfact.classifiers import ClassifierRegistry, get_default_registry
 
@@ -225,6 +261,7 @@ def run_monte_carlo(
         import random
 
         import numpy as np
+
         random.seed(seed)
         np.random.seed(seed)
 
@@ -242,30 +279,37 @@ def run_monte_carlo(
         output_text = _extract_final_output(result)
 
         clf_results = reg.run_all(query, output_text, sources, domain)
-        quality = ClassifierRegistry.aggregate_quality(clf_results)
+        if quality_fn is not None:
+            quality = float(quality_fn(output_text, result if isinstance(result, dict) else {}))
+        else:
+            quality = ClassifierRegistry.aggregate_quality(clf_results)
 
         # Convert trace to simulation format
         baseline_traces = []
         for entry in trace:
             if entry.get("node") == "output":
                 continue
-            baseline_traces.append({
-                "agent": entry["node"],
-                "status": entry.get("status", "pass"),
-                "note": "Original baseline execution",
-                "input": entry.get("input", {}),
-                "output": entry.get("output", {}),
-            })
+            baseline_traces.append(
+                {
+                    "agent": entry["node"],
+                    "status": entry.get("status", "pass"),
+                    "note": "Original baseline execution",
+                    "input": entry.get("input", {}),
+                    "output": entry.get("output", {}),
+                }
+            )
 
-        results.append(SimulationResult(
-            simulation_id=sim_id,
-            perturbation=None,
-            quality_score=quality,
-            classifier_results=clf_results,
-            perturbed_output=output_text[:200],
-            is_baseline=True,
-            agent_traces=baseline_traces,
-        ))
+        results.append(
+            SimulationResult(
+                simulation_id=sim_id,
+                perturbation=None,
+                quality_score=quality,
+                classifier_results=clf_results,
+                perturbed_output=output_text[:200],
+                is_baseline=True,
+                agent_traces=baseline_traces,
+            )
+        )
         sim_id += 1
         if progress_callback:
             progress_callback(sim_id, num_simulations, "baseline")
@@ -273,6 +317,7 @@ def run_monte_carlo(
     # ── Step 2: Shapley Coalition Runs ───────────────────────────────
     # Generate all subsets evaluated during Shapley permutations
     import itertools
+
     N = len(agents)
     if N <= 4:
         perms = list(itertools.permutations(agents))
@@ -304,11 +349,19 @@ def run_monte_carlo(
         )
 
         for _ in range(sims_per_coalition):
-            output_text, trace = run_coalition(graph, coalition, input_state)
+            output_text, trace, coalition_result = _run_coalition_full(graph, coalition, input_state)
 
             # Score the real output
             clf_results = reg.run_all(query, output_text, sources, domain)
-            quality = ClassifierRegistry.aggregate_quality(clf_results)
+            if quality_fn is not None:
+                quality = float(
+                    quality_fn(
+                        output_text,
+                        coalition_result if isinstance(coalition_result, dict) else {},
+                    )
+                )
+            else:
+                quality = ClassifierRegistry.aggregate_quality(clf_results)
 
             # Build simulation trace
             sim_traces = []
@@ -316,27 +369,29 @@ def run_monte_carlo(
                 if entry.get("node") == "output":
                     continue
                 is_ablated = entry["node"] in ablated_agents
-                sim_traces.append({
-                    "agent": entry["node"],
-                    "status": "ablated" if is_ablated else entry.get("status", "pass"),
-                    "note": (
-                        "Agent replaced with no-op"
-                        if is_ablated
-                        else "Real execution with upstream ablation"
-                    ),
-                    "input": entry.get("input", {}),
-                    "output": entry.get("output", {}),
-                })
+                sim_traces.append(
+                    {
+                        "agent": entry["node"],
+                        "status": "ablated" if is_ablated else entry.get("status", "pass"),
+                        "note": (
+                            "Agent replaced with no-op" if is_ablated else "Real execution with upstream ablation"
+                        ),
+                        "input": entry.get("input", {}),
+                        "output": entry.get("output", {}),
+                    }
+                )
 
-            results.append(SimulationResult(
-                simulation_id=sim_id,
-                perturbation=pert,
-                quality_score=quality,
-                classifier_results=clf_results,
-                perturbed_output=output_text[:200],
-                is_baseline=False,
-                agent_traces=sim_traces,
-            ))
+            results.append(
+                SimulationResult(
+                    simulation_id=sim_id,
+                    perturbation=pert,
+                    quality_score=quality,
+                    classifier_results=clf_results,
+                    perturbed_output=output_text[:200],
+                    is_baseline=False,
+                    agent_traces=sim_traces,
+                )
+            )
             sim_id += 1
             if progress_callback:
                 progress_callback(sim_id, num_simulations, f"ablating {pert.agent}")

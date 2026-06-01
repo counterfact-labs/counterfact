@@ -777,6 +777,12 @@ No agent degrading quality beyond noise</code></pre>
         which four prompts to rewrite, in what order, and which quality dimension each was degrading.</li>
     </ol>
 
+    <p>Every failure in this pipeline is local: a single prompt instruction producing unintended behavior. There are no
+      feedback loops, no architectural mismatches, and no emergent interactions between agents beyond simple data
+      propagation. These are the easy cases. Future posts will cover systemic failures&mdash;cascading error amplification,
+      conflicting objectives between agents, and architectural bottlenecks&mdash;where counterfactual attribution
+      becomes essential rather than merely useful.</p>
+
     <hr>
 
     <h2 id="llm-baseline">Baseline: Can an LLM Diagnose This From Traces?</h2>
