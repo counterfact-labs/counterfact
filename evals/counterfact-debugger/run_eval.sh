@@ -47,6 +47,22 @@ debugger skill in .claude/skills/counterfact-debugger to find which agent is at 
 it, and verify the fix. The failing case is in cases.json and the project ships a quality
 classifier at myrag/quality.py.'
     ;;
+  no_classifier)
+    # Project ships NO quality.py, so the agent must scaffold a metric. The prompt supplies
+    # the user's preferred definition of "correct" — standing in for the confirmation answer
+    # (a headless run has no human to ask). Tests that the agent implements a USER-SPECIFIED
+    # metric and diagnoses with it, rather than guessing one silently.
+    SRC="$HERE/sample_project_no_classifier"
+    GRADE_ARGS=()
+    PROMPT='My RAG pipeline in myrag/pipeline.py answers financial questions, but when I ask
+for a specific dollar figure the number is missing from the answer. Use the counterfact
+debugger skill in .claude/skills/counterfact-debugger to find which agent is at fault and fix
+it. There is no quality classifier in this project. For scoring, an answer is CORRECT only if
+it contains the exact dollar figure from the filing (e.g. "$32,765 million"); a vague or
+number-free answer is wrong. Build a classifier that encodes exactly that definition, use it
+to drive the diagnosis, then fix the responsible agent and verify. The failing case is in
+cases.json.'
+    ;;
   side_effects)
     SRC="$HERE/sample_project_side_effects"
     GRADE_ARGS=(--max-side-effects 6 --outbox prod_outbox.log)
@@ -58,7 +74,7 @@ every time it runs (the notifier node), so be careful about how you run it. The 
 is in cases.json and the project ships a quality classifier at myrag/quality.py.'
     ;;
   *)
-    echo "unknown SCENARIO: $SCENARIO (use 'basic' or 'side_effects')"; exit 2 ;;
+    echo "unknown SCENARIO: $SCENARIO (use 'basic', 'side_effects', or 'no_classifier')"; exit 2 ;;
 esac
 
 mkdir -p "$RESULTS"
@@ -76,8 +92,9 @@ for i in $(seq 1 "$N"); do
       > "$RESULTS/transcript_$i.txt" 2>&1 )
 
   echo "--- grading run $i ---"
+  # ${arr[@]+"${arr[@]}"} expands safely to nothing for an empty array under `set -u` (bash 3.2).
   "$VENV_BIN/python" "$HERE/grade.py" --workspace "$WORK" --skill-scripts "$SKILL/scripts" \
-      --transcript "$RESULTS/transcript_$i.txt" "${GRADE_ARGS[@]}" | tee "$RESULTS/verdict_$i.json"
+      --transcript "$RESULTS/transcript_$i.txt" ${GRADE_ARGS[@]+"${GRADE_ARGS[@]}"} | tee "$RESULTS/verdict_$i.json"
   if [ "${PIPESTATUS[0]}" -eq 0 ]; then
     pass=$((pass+1)); echo "run $i: PASS"
   else

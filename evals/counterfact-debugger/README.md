@@ -14,6 +14,11 @@ unit tests (`counterfact/tests/test_skill_*.py`) can't cover.
   on-call channel (appends to `$MYRAG_OUTBOX`, default `prod_outbox.log`) on **every** run.
   A naive full diagnosis fires it ~11×. This scenario ALSO grades that the agent **contained**
   the side effect (redirected/mocked it, or previewed with `--dry-run`) — testing friction #2.
+- **`no_classifier`** (`sample_project_no_classifier/`) — ships **no** `quality.py`, so the
+  agent must build the quality metric itself. The prompt supplies the user's preferred
+  definition of "correct" (the answer must contain the exact figure) — standing in for the
+  confirmation answer a headless run can't ask for. Tests that the agent implements a
+  **user-specified** metric and diagnoses with it, rather than silently guessing one.
 
 ```bash
 evals/counterfact-debugger/run_eval.sh                          # basic, 1x

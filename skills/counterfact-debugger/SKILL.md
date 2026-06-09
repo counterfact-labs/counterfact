@@ -60,18 +60,29 @@ Diagnosis needs a **compiled graph carrying a build recipe**. Establish two thin
 A graph built with raw LangGraph has **no recipe** and `diagnose` will raise — the swap is
 mandatory, not optional.
 
-### 3. Pick classifiers (quality signal)
-Attribution is only as good as the quality metric. In order of preference:
+### 3. Pick the quality metric — and confirm it with the user
+Attribution is **only as good as the quality metric**: the classifier defines what counts as a
+"correct" answer, and a wrong definition silently produces a confident-but-wrong diagnosis.
+This is the user's call, not yours — do not silently guess it. In order of preference:
+
 1. **Project's own** `ClassifierRegistry` — pass via `--registry module:function`. **The
    `--domain` must match the domain the classifiers are registered under** (e.g. a registry
    that does `register(fn, domain="finance")` needs `--domain finance`). A mismatch means
    zero classifiers run and attribution is silent noise; the runner now warns/auto-corrects,
    but set it right. If `classifiers_used` is empty in the report, the metric didn't run.
-2. **Custom scaffold** — if the pipeline isn't generic RAG, write 1–2 small classifiers
-   `(query, output, sources) -> ClassifierResult` targeting the actual failure (e.g. "does
-   the answer contain the specific number asked for?"). See `reference/report-schema.md`.
-3. **Built-in domain** — `--domain rag` or `--domain decision`. Weakest on non-RAG pipelines;
-   say so when you use it.
+2. **Custom scaffold** — if there's no project classifier that clearly matches the reported
+   symptom, write 1–2 small classifiers `(query, output, sources) -> ClassifierResult`
+   targeting the actual failure. See `reference/report-schema.md`.
+3. **Built-in domain** — `--domain rag` or `--domain decision`. Weakest on non-RAG pipelines.
+
+**Confirm before running whenever you had to scaffold or fall back (cases 2–3):** state the
+metric you propose — i.e. what you will treat as a "good" answer (e.g. "correct only if the
+answer contains the exact dollar figure asked for") — and ask the user to confirm. The user
+may approve it, refine it, or **specify their own preferred definition**; if they describe one,
+**implement that as the classifier** and diagnose with it. When you reuse a project classifier
+that clearly matches the symptom (case 1), you needn't block — but still **name the metric**
+you're using so the user can correct it. The diagnosis is only trustworthy once the metric is
+the one the user actually cares about.
 
 ### 4. Run the diagnosis
 ```bash
