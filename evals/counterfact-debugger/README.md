@@ -26,6 +26,19 @@ N=5 evals/counterfact-debugger/run_eval.sh                      # basic, pass ra
 SCENARIO=side_effects N=5 evals/counterfact-debugger/run_eval.sh
 ```
 
+### Real-pipeline eval (`run_eval_financebench.sh`)
+
+The scenarios above use deterministic toy pipelines. `run_eval_financebench.sh` is the
+real-class proof: a headless agent is given the **broken 8-agent FinanceBench pipeline**
+(`examples/financebench_skill/`) + the skill, and must diagnose with real counterfactual
+ablation and fix the responsible agents' prompts. `grade_financebench.py` then runs the
+agent's edited pipeline on the FinanceBench queries and checks exact-answer count recovered
+(broken baseline is 0/5). Expensive and non-deterministic; uses a reduced `FB_SIMS`.
+
+```bash
+N=3 FB_SIMS=12 evals/counterfact-debugger/run_eval_financebench.sh
+```
+
 ## What it does
 
 `run_eval.sh`:

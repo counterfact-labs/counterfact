@@ -1,0 +1,97 @@
+{
+  "config": {
+    "sims": 30,
+    "queries": 5,
+    "seed": 42
+  },
+  "steps": [
+    {
+      "step": 0,
+      "fix": null,
+      "avg_quality": 0.4000000000000001,
+      "exact": 0,
+      "avg_shapley": {
+        "query_parser": 0.011593924030539455,
+        "doc_retriever": 0.1383306577484637,
+        "table_extractor": -0.029553022631883013,
+        "context_enricher": 0.0017698622943918823,
+        "synthesizer": 0.04653992384965182,
+        "fact_checker": 0.12898975518042377,
+        "tone_editor": -0.14635540664458752,
+        "output_formatter": 0.20793323508773423
+      },
+      "per_classifier": {
+        "accuracy": {
+          "query_parser": -0.08060758459682708,
+          "doc_retriever": 0.1666693346993661,
+          "table_extractor": 0.007239382239382236,
+          "context_enricher": -0.030927835051546393,
+          "synthesizer": 0.2007383672332126,
+          "fact_checker": 0.10505910918282053,
+          "tone_editor": -0.10639155355650201,
+          "output_formatter": 0.18499231606582572
+        },
+        "precision": {
+          "query_parser": 0.008679763567725735,
+          "doc_retriever": 0.11969187915392321,
+          "table_extractor": -0.03857225630225051,
+          "context_enricher": 0.006455688485128444,
+          "synthesizer": 0.0021329326803305898,
+          "fact_checker": 0.1269983966021117,
+          "tone_editor": -0.24376763711552113,
+          "output_formatter": 0.17191378113343175
+        },
+        "grounding": {
+          "query_parser": 0.21855837370566147,
+          "doc_retriever": 0.02222222222222222,
+          "table_extractor": -0.0586793198892843,
+          "context_enricher": 0.013884117129110293,
+          "synthesizer": -0.1854518010868783,
+          "fact_checker": 0.035555555555555556,
+          "tone_editor": 0.13928747769398295,
+          "output_formatter": 0.21974052246975165
+        }
+      }
+    },
+    {
+      "step": 1,
+      "fix": "tone_editor",
+      "avg_quality": 0.888888888888889,
+      "exact": 5,
+      "avg_shapley": {
+        "query_parser": 0.0,
+        "doc_retriever": 0.0,
+        "table_extractor": 0.0,
+        "context_enricher": 0.0,
+        "synthesizer": 0.0,
+        "fact_checker": 0.0,
+        "tone_editor": 0.0,
+        "output_formatter": 0.0
+      },
+      "per_classifier": {}
+    }
+  ],
+  "llm_baseline": {
+    "ranking": [
+      "tone_editor",
+      "output_formatter",
+      "context_enricher",
+      "synthesizer",
+      "fact_checker",
+      "table_extractor",
+      "doc_retriever",
+      "query_parser"
+    ],
+    "reasoning": "tone_editor is the primary culprit: it consistently rounds exact figures ($1,577\u2192$1.6B, $1,488\u2192$1.5B, $6,439\u2192$6.4B, $4,870\u2192$4.9B) and introduces fabricated qualitative narratives (peer comparisons, 'Dividend Aristocrat status', 'tariff disruptions', 'management confidence in valuation') that were never in the source data. output_formatter blindly propagates all of tone_editor's distortions without correction, making it the second most responsible. context_enricher introduces unsourced narrative framing and approximate figures ($6.4B, $3.2B) that prime downstream agents toward rounded outputs. synthesizer correctly preserves exact figures in most cases but occasionally inherits rounded approximations from context_enricher. fact_checker fails its core responsibility by passing through tone_editor-style rounding and fabricated context without flagging them as inaccurate \u2014 it verifies the exact figures but then allows downstream corruption. table_extractor, doc_retriever, and query_parser all perform correctly and are not responsible for the errors."
+  },
+  "shapley_ranking_step0": [
+    "tone_editor",
+    "table_extractor",
+    "context_enricher",
+    "query_parser",
+    "synthesizer",
+    "fact_checker",
+    "doc_retriever",
+    "output_formatter"
+  ]
+}

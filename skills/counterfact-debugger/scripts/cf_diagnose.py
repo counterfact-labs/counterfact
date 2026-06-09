@@ -124,6 +124,28 @@ def _reconcile_domain(registry, domain: str) -> str:
     )
 
 
+def _progress_printer(label: str, every: float = 5.0):
+    """Throttled progress+ETA callback for graph.diagnose(progress_callback=...).
+    Prints at most once per `every` seconds so long real-LLM diagnoses are watchable."""
+    import time
+    state = {"t0": time.monotonic(), "last": 0.0}
+
+    def cb(current=0, total=0, status=""):
+        now = time.monotonic()
+        done = total and current >= total
+        if now - state["last"] < every and not done:
+            return
+        state["last"] = now
+        el = now - state["t0"]
+        eta = (total - current) / (current / el) if current and el > 0 and total else 0
+        pct = f"{100*current/total:.0f}%" if total else "?"
+        print(f"  [{label}] {current}/{total or '?'} ({pct}) | elapsed {el:.0f}s"
+              f"{f' | ETA {eta:.0f}s' if eta else ''}{f' | {status}' if status else ''}",
+              file=sys.stderr, flush=True)
+
+    return cb
+
+
 def _short(value, n: int = 70) -> str:
     s = json.dumps(value, default=str) if not isinstance(value, str) else value
     s = s.replace("\n", " ")
@@ -208,6 +230,7 @@ def main() -> None:
             registry=registry,
             llm_fn=fn,
             seed=args.seed,
+            progress_callback=_progress_printer(f"case {i + 1}/{len(inputs)}"),
         )
 
         case_json = out_path if not multi else out_path.with_name(f"{out_path.stem}_{i + 1}{out_path.suffix}")
