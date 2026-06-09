@@ -120,6 +120,41 @@ counterfact eval trace.json --provider anthropic
 counterfact discover logs.txt
 ```
 
+## Agent Skill
+
+counterfact ships as a portable [Agent Skill](https://docs.claude.com/en/docs/agents-and-tools/agent-skills)
+so a coding agent (Claude Code, the Agent SDK, claude.ai) can debug a failing pipeline
+for you — instrument it, run real counterfactual ablation, interpret the Shapley
+attribution, and propose + verify a fix.
+
+```
+skills/counterfact-debugger/
+├── SKILL.md                  # when-to-use + the 6-step debugging workflow
+├── reference/                # failure taxonomy, reading attribution, report schema
+└── scripts/
+    ├── cf_diagnose.py        # factory + inputs -> runs diagnose, writes JSON + markdown
+    ├── llm_fn.py             # Anthropic/Google LLM caller from env
+    └── verify.py             # compares two reports to confirm a fix moved the attribution
+```
+
+Point the runner at a factory that returns your compiled pipeline and the input(s) that fail:
+
+```bash
+python skills/counterfact-debugger/scripts/cf_diagnose.py \
+  --factory myapp.pipeline:build \
+  --inputs cases.json \
+  --domain rag --num-simulations 30 --out report.json
+```
+
+Install it by copying `skills/counterfact-debugger/` into your agent's skills directory
+(e.g. `~/.claude/skills/`). See `SKILL.md` for the full workflow.
+
+**Worked case study:** [`examples/financebench_skill/CASE_STUDY.md`](examples/financebench_skill/CASE_STUDY.md)
+walks the skill through diagnosing a real 8-agent financial-RAG pipeline on FinanceBench
+questions — finding the one agent (of four plausible suspects) that actually causes the
+failure, fixing it (0/5 → 5/5 exact answers), and showing where an LLM reading the traces
+gets it wrong. Fully reproducible: `PYTHONPATH=examples python -m financebench_skill.run_casestudy`.
+
 ## Development
 
 ```bash

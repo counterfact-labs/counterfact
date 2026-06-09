@@ -1,0 +1,47 @@
+[
+  {
+    "query": "What is the FY2018 capital expenditure amount (in USD millions) for 3M? Use the cash flow statement.",
+    "source_document": "\n3M Company and Subsidiaries\nConsolidated Statement of Cash Flows\nYears ended December 31 (Millions)\n                                                    2018        2017        2016\nCash Flows from Operating Activities\n  Net income including noncontrolling interest     $5,363      $4,869      $5,058\n  Depreciation and amortization                     1,488       1,544       1,474\n  Net cash provided by operating activities         6,439       6,240       6,662\n\nCash Flows from Investing Activities\n  Purchases of property, plant and equipment (PP&E) (1,577)     (1,373)     (1,420)\n  Proceeds from sale of PP&E and other assets          262          49          58\n  Acquisitions, net of cash acquired                    13      (2,023)        (16)\n\nCash Flows from Financing Activities\n  Repurchases of common stock                       (4,870)    (2,068)     (3,753)\n  Dividends paid                                    (3,193)    (2,803)     (2,678)\n",
+    "parsed_query": "",
+    "retrieved_sections": "",
+    "extracted_data": "",
+    "enriched_context": "",
+    "analysis": ""
+  },
+  {
+    "query": "What was 3M's depreciation and amortization expense in FY2018 (in USD millions)?",
+    "source_document": "\n3M Company and Subsidiaries\nConsolidated Statement of Cash Flows\nYears ended December 31 (Millions)\n                                                    2018        2017        2016\nCash Flows from Operating Activities\n  Net income including noncontrolling interest     $5,363      $4,869      $5,058\n  Depreciation and amortization                     1,488       1,544       1,474\n  Net cash provided by operating activities         6,439       6,240       6,662\n\nCash Flows from Investing Activities\n  Purchases of property, plant and equipment (PP&E) (1,577)     (1,373)     (1,420)\n  Proceeds from sale of PP&E and other assets          262          49          58\n  Acquisitions, net of cash acquired                    13      (2,023)        (16)\n\nCash Flows from Financing Activities\n  Repurchases of common stock                       (4,870)    (2,068)     (3,753)\n  Dividends paid                                    (3,193)    (2,803)     (2,678)\n",
+    "parsed_query": "",
+    "retrieved_sections": "",
+    "extracted_data": "",
+    "enriched_context": "",
+    "analysis": ""
+  },
+  {
+    "query": "What was 3M's net cash provided by operating activities in FY2018 (in USD millions)?",
+    "source_document": "\n3M Company and Subsidiaries\nConsolidated Statement of Cash Flows\nYears ended December 31 (Millions)\n                                                    2018        2017        2016\nCash Flows from Operating Activities\n  Net income including noncontrolling interest     $5,363      $4,869      $5,058\n  Depreciation and amortization                     1,488       1,544       1,474\n  Net cash provided by operating activities         6,439       6,240       6,662\n\nCash Flows from Investing Activities\n  Purchases of property, plant and equipment (PP&E) (1,577)     (1,373)     (1,420)\n  Proceeds from sale of PP&E and other assets          262          49          58\n  Acquisitions, net of cash acquired                    13      (2,023)        (16)\n\nCash Flows from Financing Activities\n  Repurchases of common stock                       (4,870)    (2,068)     (3,753)\n  Dividends paid                                    (3,193)    (2,803)     (2,678)\n",
+    "parsed_query": "",
+    "retrieved_sections": "",
+    "extracted_data": "",
+    "enriched_context": "",
+    "analysis": ""
+  },
+  {
+    "query": "How much did 3M pay in dividends in FY2018 (in USD millions)?",
+    "source_document": "\n3M Company and Subsidiaries\nConsolidated Statement of Cash Flows\nYears ended December 31 (Millions)\n                                                    2018        2017        2016\nCash Flows from Operating Activities\n  Net income including noncontrolling interest     $5,363      $4,869      $5,058\n  Depreciation and amortization                     1,488       1,544       1,474\n  Net cash provided by operating activities         6,439       6,240       6,662\n\nCash Flows from Investing Activities\n  Purchases of property, plant and equipment (PP&E) (1,577)     (1,373)     (1,420)\n  Proceeds from sale of PP&E and other assets          262          49          58\n  Acquisitions, net of cash acquired                    13      (2,023)        (16)\n\nCash Flows from Financing Activities\n  Repurchases of common stock                       (4,870)    (2,068)     (3,753)\n  Dividends paid                                    (3,193)    (2,803)     (2,678)\n",
+    "parsed_query": "",
+    "retrieved_sections": "",
+    "extracted_data": "",
+    "enriched_context": "",
+    "analysis": ""
+  },
+  {
+    "query": "What was 3M's total stock repurchase amount in FY2018 (in USD millions)?",
+    "source_document": "\n3M Company and Subsidiaries\nConsolidated Statement of Cash Flows\nYears ended December 31 (Millions)\n                                                    2018        2017        2016\nCash Flows from Operating Activities\n  Net income including noncontrolling interest     $5,363      $4,869      $5,058\n  Depreciation and amortization                     1,488       1,544       1,474\n  Net cash provided by operating activities         6,439       6,240       6,662\n\nCash Flows from Investing Activities\n  Purchases of property, plant and equipment (PP&E) (1,577)     (1,373)     (1,420)\n  Proceeds from sale of PP&E and other assets          262          49          58\n  Acquisitions, net of cash acquired                    13      (2,023)        (16)\n\nCash Flows from Financing Activities\n  Repurchases of common stock                       (4,870)    (2,068)     (3,753)\n  Dividends paid                                    (3,193)    (2,803)     (2,678)\n",
+    "parsed_query": "",
+    "retrieved_sections": "",
+    "extracted_data": "",
+    "enriched_context": "",
+    "analysis": ""
+  }
+]

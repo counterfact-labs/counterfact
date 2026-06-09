@@ -1,0 +1,26 @@
+[
+  {
+    "fix": "none (broken baseline)",
+    "avg_quality": 0.4,
+    "exact": 0,
+    "n": 5
+  },
+  {
+    "fix": "context_enricher only",
+    "avg_quality": 0.4,
+    "exact": 0,
+    "n": 5
+  },
+  {
+    "fix": "table_extractor only",
+    "avg_quality": 0.4,
+    "exact": 0,
+    "n": 5
+  },
+  {
+    "fix": "tone_editor only (diagnosis's top pick)",
+    "avg_quality": 0.888888888888889,
+    "exact": 5,
+    "n": 5
+  }
+]
