@@ -96,6 +96,8 @@ counterfact/
 ├── perturbation.py     # Real pipeline re-execution engine
 ├── diagnostics.py      # Full diagnostic orchestrator
 ├── recommendations.py  # Evidence-based fix generation
+├── spec.py             # Neutral graph spec IR (build_graph_from_spec)
+├── orchestration.py    # Dataset-level diagnosis for external orchestrators
 ├── optimizer.py        # Pipeline optimization engine
 ├── prompt_analysis.py  # Thinking-model prompt evaluation
 ├── tool_tracing.py     # Tool call capture and analysis

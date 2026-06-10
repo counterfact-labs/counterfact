@@ -20,7 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Async execution engine** for concurrent LLM simulations.
 - **CLI** (`counterfact eval`, `counterfact discover`) for trace analysis.
 - **Pipeline topology discovery** from raw logs.
-- **Prompt analysis** module for detecting anti-patterns.
+- **Prompt analysis** module for detecting anti-patterns, including prompt-section attribution for thinking models.
+- **Tool-call tracing** for capturing and analyzing tool usage in thinking-model pipelines.
+- **Pipeline optimizer** for single-objective quality maximization over a search space.
+- **Neutral graph spec IR** (`build_graph_from_spec`) and **dataset-level diagnosis** (`diagnose_dataset`) for external orchestrators.
 - **LLM response caching** for reproducible, cost-efficient diagnostic runs.
-- **Export utilities** for Markdown diagnostic reports.
+- **Export utilities** for diagnostic reports in Markdown, JSON, and HTML.
+- **Portable Agent Skill** (`skills/counterfact-debugger/`) that drives the full instrument → ablate → attribute → fix → verify workflow.
 - Support for Google Gemini and Anthropic Claude as LLM providers.

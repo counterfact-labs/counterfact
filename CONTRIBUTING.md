@@ -84,6 +84,14 @@ counterfact/
 ├── classifiers.py    # Pluggable quality classifiers
 ├── recommendations.py # Automated fix suggestions
 ├── evals.py          # Ground-truth-free evaluation checks
+├── discovery.py      # Pipeline topology discovery from logs
+├── prompt_analysis.py # Thinking-model prompt evaluation
+├── tool_tracing.py   # Tool call capture and analysis
+├── optimizer.py      # Pipeline optimization engine
+├── spec.py           # Neutral graph spec IR (build_graph_from_spec)
+├── orchestration.py  # Dataset-level diagnosis for external orchestrators
+├── export.py         # Report export (Markdown, JSON, HTML)
+├── llm.py            # LLM abstraction layer
 ├── async_engine.py   # Async equivalents of core functions
 ├── cli.py            # Command-line interface
 └── tests/            # Test suite
