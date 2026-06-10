@@ -12,7 +12,7 @@ If you discover a security vulnerability in Counterfact, please report it respon
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-Instead, please email **security@counterfact.dev** with:
+Instead, please email **arya@counterfactlabs.com** with:
 
 - A description of the vulnerability
 - Steps to reproduce the issue
