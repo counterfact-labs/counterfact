@@ -17,17 +17,28 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 SKILL="$REPO/skills/counterfact-debugger"
-VENV_BIN="$REPO/.venv/bin"
 PKG="$REPO/examples/financebench_skill"
 N="${N:-1}"
 FB_SIMS="${FB_SIMS:-12}"          # reduced sims per query to bound eval cost
 MIN_EXACT="${MIN_EXACT:-3}"       # exact answers (of 5) required to pass
 RESULTS="$HERE/results/financebench"
 
-if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -f "$REPO/../counterfactual-debugger/.env" ]; then
-  set -a; . "$REPO/../counterfactual-debugger/.env"; set +a
+# Use the repo venv if present, otherwise rely on python/python3 already on PATH.
+if [ -x "$REPO/.venv/bin/python" ]; then
+  export PATH="$REPO/.venv/bin:$PATH"
+  PY="$REPO/.venv/bin/python"
+else
+  PY="$(command -v python3 || command -v python)"
 fi
-export PATH="$VENV_BIN:$PATH"
+
+if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${GOOGLE_API_KEY:-}" ]; then
+  echo "ERROR: set ANTHROPIC_API_KEY (preferred) or GOOGLE_API_KEY before running this eval." >&2
+  exit 1
+fi
+if ! command -v claude >/dev/null; then
+  echo "ERROR: the 'claude' CLI is required for this behavioral eval (it drives a headless agent)." >&2
+  exit 1
+fi
 
 PROMPT="My financial-QA pipeline in the financebench_skill/ package answers questions about
 3M's 2018 10-K, but the answers come back with rounded figures (\$1.6 billion instead of
@@ -81,7 +92,7 @@ for i in $(seq 1 "$N"); do
   kill "$HB" 2>/dev/null
 
   echo "--- grading run $i (running edited pipeline on the queries) ---"
-  PYTHONPATH="$WORK" "$VENV_BIN/python" "$HERE/grade_financebench.py" \
+  PYTHONPATH="$WORK" "$PY" "$HERE/grade_financebench.py" \
       --workspace "$WORK" --transcript "$RESULTS/transcript_$i.txt" \
       --min-exact "$MIN_EXACT" | tee "$RESULTS/verdict_$i.json"
   if [ "${PIPESTATUS[0]}" -eq 0 ]; then

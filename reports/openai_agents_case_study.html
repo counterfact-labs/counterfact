@@ -1,0 +1,83 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Debugging an OpenAI Agents SDK pipeline with counterfact</title>
+<style>
+  body { font: 15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:#1c1e21;
+         max-width: 880px; margin: 0 auto; padding: 48px 22px 80px; background:#fafafa; }
+  h1 { font-size: 28px; margin-bottom:6px; letter-spacing:-.01em; }
+  h2 { font-size: 20px; margin-top: 40px; border-bottom:2px solid #ececec; padding-bottom:7px; }
+  .sub { color:#666; margin-top:0; font-size:15px; }
+  .lede { font-size:16px; color:#333; }
+  table { border-collapse: collapse; width:100%; margin:16px 0; background:#fff;
+           border:1px solid #ececec; border-radius:8px; overflow:hidden; }
+  th,td { text-align:left; padding:9px 12px; border-bottom:1px solid #f0f0f0; }
+  th { background:#f4f5f7; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:#555; }
+  .num { text-align:right; font-variant-numeric: tabular-nums; font-family: ui-monospace,Menlo,monospace; }
+  .neg { color:#b3261e; } .pos { color:#2e7d4f; }
+  tr.hl { background:#fbeceb; }
+  .barwrap { width:300px; height:12px; position:relative; }
+  .bar { height:12px; border-radius:2px; }
+  code,.mono { font-family: ui-monospace,Menlo,monospace; font-size:13px;
+               background:#f1f1f4; padding:1px 5px; border-radius:4px; }
+  pre { background:#1c1e21; color:#e6e6e6; padding:16px; border-radius:8px; overflow:auto; font-size:13px; line-height:1.5; }
+  pre code { background:none; padding:0; color:inherit; }
+  .flow { background:#fff; border:1px solid #e3e3e3; border-radius:8px; padding:16px;
+           font-family: ui-monospace,Menlo,monospace; font-size:13px; color:#333; white-space:pre; overflow:auto; }
+  blockquote { border-left:4px solid #d64545; margin:12px 0; padding:10px 16px; color:#444;
+                background:#fff; border-radius:0 6px 6px 0; }
+  blockquote.good { border-left-color:#2e9e5b; }
+  .note { background:#fff8e6; border-left:4px solid #e6b800; padding:12px 16px; border-radius:0 6px 6px 0; }
+  .footer { margin-top:48px; padding-top:18px; border-top:1px solid #ececec; color:#888; font-size:13px; }
+</style></head><body>
+
+<h1>Debugging an OpenAI Agents SDK support pipeline with counterfact</h1>
+<p class="sub">Finding which agent in a multi-agent system is responsible for a wrong answer,
+by re-running the pipeline with each agent removed.</p>
+
+<h2>The system</h2>
+<p>This is an orchestrator-with-handoffs pipeline built with the OpenAI Agents SDK. A triage
+agent routes each support ticket to a specialist, and a compliance editor writes the final
+customer reply.</p>
+<div class="flow">triage ──handoff──▶ { billing | technical | account } ──▶ compliance_editor ──▶ reply</div>
+<p>The evaluation set is 5 billing-refund tickets, scored with a Braintrust scorer. The rule
+is the one a billing team would use: the exact refund amount has to appear in the reply.</p>
+
+<h2>The symptom</h2>
+<p>On the baseline pipeline, 0 of 5 replies are correct. The rest are polite
+acknowledgements that leave out the dollar figure the customer asked about:</p>
+<blockquote>Hello, thanks for reaching out. Your request has been reviewed and processed in accordance with our policy. A confirmation email will follow shortly.</blockquote>
+
+<h2>The suspects</h2>
+<p>Reading the transcript, several agents could be at fault. The usual first guess, and the one
+an LLM asked to debug from the trace tends to make, is the <code>billing</code> agent: it owns
+the amount, and the amount is missing from its eventual reply. That guess turns out to be wrong.</p>
+
+<h2>What counterfact found</h2>
+<p>counterfact removes one agent at a time, re-runs the real pipeline, and measures how the
+Braintrust score changes, averaged over the failing tickets. A negative value means the agent's
+presence lowers the score.</p>
+<table><tr><th>Agent</th><th>Avg Shapley</th><th>impact &nbsp;(red = hurts quality)</th></tr><tr class='hl'><td><code>compliance_editor</code></td><td class='num neg'>-0.490</td><td><div class='barwrap'><div class='bar' style='width:150px;background:#d64545;margin-left:auto;right;float:right;'></div></div></td></tr><tr><td><code>billing</code></td><td class='num pos'>+0.000</td><td><div class='barwrap'><div class='bar' style='width:0px;background:#2e9e5b;margin-right:auto;left;float:left;'></div></div></td></tr><tr><td><code>technical</code></td><td class='num pos'>+0.153</td><td><div class='barwrap'><div class='bar' style='width:47px;background:#2e9e5b;margin-right:auto;left;float:left;'></div></div></td></tr><tr><td><code>account</code></td><td class='num pos'>+0.153</td><td><div class='barwrap'><div class='bar' style='width:47px;background:#2e9e5b;margin-right:auto;left;float:left;'></div></div></td></tr><tr><td><code>orchestrator</code></td><td class='num pos'>+0.204</td><td><div class='barwrap'><div class='bar' style='width:62px;background:#2e9e5b;margin-right:auto;left;float:left;'></div></div></td></tr></table>
+<p>The <code>billing</code> agent has a non-negative score: removing it never improves the
+answer, because it produces the correct figure in the first place. The negative value belongs to
+<code>compliance_editor</code>. Its instruction to make the reply policy-compliant rewrites the
+specialist's answer into a generic template and drops the exact amount along the way.</p>
+
+<h2>The fix</h2>
+<p>Correcting the <code>compliance_editor</code> instruction so it keeps the specialist's figures
+brings the evaluation set to 5 of 5. The same ticket now answers
+correctly:</p>
+<blockquote class="good">Hello, thanks for reaching out. Refund of $250.00 approved for this order; it will post in 5-7 business days. This was handled in line with our refund policy.</blockquote>
+
+<h2>Why the trace alone is not enough</h2>
+<p>The final transcript contains no sign that <code>compliance_editor</code> had the figure and
+discarded it. By the time you read the reply, the amount is simply gone, and the natural reading
+is that the billing agent never produced it. Removing the editor and re-running the pipeline is
+what shows the figure was present all along. That is the part counterfact adds on top of an
+ordinary observability trace.</p>
+
+<div class="footer">
+Generated from <code>reports/openai_agents_casestudy.json</code>. Reproduce offline with
+<code>PYTHONPATH=examples python -m openai_agents_skill.run_casestudy</code>.
+</div>
+
+</body></html>

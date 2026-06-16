@@ -42,7 +42,9 @@ Changelog = "https://github.com/counterfact-labs/counterfact/blob/main/CHANGELOG
 google = ["google-genai"]
 anthropic = ["anthropic"]
 cli = ["rich>=13.0.0"]
-all = ["google-genai", "anthropic", "rich>=13.0.0"]
+openai-agents = ["openai-agents"]
+braintrust = ["braintrust", "autoevals"]
+all = ["google-genai", "anthropic", "rich>=13.0.0", "openai-agents", "braintrust", "autoevals"]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
@@ -55,7 +57,7 @@ dev = [
 counterfact = "counterfact.cli:main"
 
 [tool.setuptools]
-packages = ["counterfact"]
+packages = ["counterfact", "counterfact.integrations"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

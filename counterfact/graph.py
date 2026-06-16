@@ -711,6 +711,65 @@ class CounterfactualGraph:
             quality_fn=quality_fn,
         )
 
+    # ─── Sensitivity (graded degradation, not just ablation) ─────────
+
+    def diagnose_sensitivity(
+        self,
+        input_state: dict,
+        *,
+        degraders: Optional[dict] = None,
+        target_keys: Optional[dict] = None,
+        magnitudes: tuple = (0.25, 0.5, 1.0),
+        nodes: Optional[list] = None,
+        quality_fn: Optional[Callable[[str, dict], float]] = None,
+        registry: Any = None,
+        llm_fn: Optional[Callable] = None,
+        domain: str = "rag",
+        sources: str = "",
+        seed: Optional[int] = None,
+        structural_eps: float = 0.05,
+        progress_callback: Optional[Callable] = None,
+    ):
+        """Run graded-degradation sensitivity analysis on this pipeline.
+
+        Unlike :meth:`diagnose` (which ablates each agent — replaces it with a
+        no-op), this progressively *degrades* each node's output across a range
+        of magnitudes (with ``1.0`` being ablation-equivalent) and classifies the
+        dose-response: ``quality_driver`` / ``structural`` / ``harmful`` /
+        ``robust``. This is the right lens for modules like retrievers or parsers,
+        where full ablation only causes a structural collapse and tells you
+        little about whether the module's *quality* drives the answer.
+
+        Args mirror :func:`counterfact.sensitivity.run_degradation_analysis`;
+        see it for details. Returns a ``SensitivityReport``.
+
+        Raises:
+            ValueError: If no build recipe is available (can't clone/re-run).
+        """
+        if self._recipe is None:
+            raise ValueError(
+                "Cannot run sensitivity analysis: no build recipe available. "
+                "Use counterfact.StateGraph (not raw LangGraph) to enable it."
+            )
+        from counterfact.sensitivity import run_degradation_analysis
+
+        return run_degradation_analysis(
+            self,
+            input_state,
+            degraders=degraders,
+            target_keys=target_keys,
+            magnitudes=magnitudes,
+            nodes=nodes,
+            quality_fn=quality_fn,
+            registry=registry,
+            llm_fn=llm_fn,
+            domain=domain,
+            sources=sources,
+            seed=seed,
+            structural_eps=structural_eps,
+            progress_callback=progress_callback,
+        )
+
     # ─── Pass-through for any other compiled-graph attributes ────────
 
     def __getattr__(self, name: str) -> Any:

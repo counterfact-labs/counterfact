@@ -25,6 +25,7 @@ Ablate Critic: [Retriever] → [Synthesizer] → [no-op] → output (quality: 0.
 
 - **Drop-in Integration** — Replace `from langgraph.graph import StateGraph` with `from counterfact import StateGraph`. Everything works the same, plus you get diagnostics.
 - **Real Counterfactual Analysis** — Actually re-runs your pipeline with agents ablated. No LLM simulation, no guessing.
+- **Graded Degradation** — When full ablation is too blunt (e.g. a retriever, whose removal just collapses the pipeline), progressively *degrade* a module's output and read the dose-response: is it a quality driver, merely structural, harmful, or robust? See [`diagnose_sensitivity`](#sensitivity-analysis-graded-degradation).
 - **Ground-Truth-Free Evals** — Structural and consistency checks that don't require labeled data: empty outputs, schema violations, latency anomalies, inter-agent coherence, and more.
 - **Shapley Attribution** — Shapley value and leave-one-out analysis to identify *which agent* caused a pipeline failure.
 - **Failure Classification** — Automatic categorization: local failure, systemic failure, architectural gap, feedback amplification.
@@ -156,6 +157,89 @@ walks the skill through diagnosing a real 8-agent financial-RAG pipeline on Fina
 questions — finding the one agent (of four plausible suspects) that actually causes the
 failure, fixing it (0/5 → 5/5 exact answers), and showing where an LLM reading the traces
 gets it wrong. Fully reproducible: `PYTHONPATH=examples python -m financebench_skill.run_casestudy`.
+
+## Sensitivity analysis (graded degradation)
+
+Pure ablation answers "is this module load-bearing?" For a retriever, parser, or
+reranker that question is uninformative — remove it and the pipeline structurally
+collapses, telling you nothing about whether the module's *quality* is what hurts
+answers. `diagnose_sensitivity` instead degrades each module's output across a range
+of magnitudes (where `1.0` is full ablation, the endpoint of the spectrum) and
+classifies the dose-response:
+
+```python
+report = pipeline.diagnose_sensitivity(
+    input_state={"query": "..."},
+    quality_fn=my_quality_fn,            # or a classifier registry
+    magnitudes=(0.25, 0.5, 0.75, 1.0),
+)
+for node in report.ranked():
+    print(node.node, node.classification)   # quality_driver | structural | harmful | robust
+```
+
+Degraders are auto-selected by inferred module type (drop ranked docs for a
+retriever, decay order for a reranker, drop sentences for a generator) and can be
+overridden per node. The result tells a retriever that is *structural* (needed, but
+quality-insensitive) apart from one that is a *quality driver* — a distinction a
+single on/off ablation cannot make. The skill reaches for this automatically; see
+`skills/counterfact-debugger/reference/ablation-vs-degradation.md`.
+
+## Integrations
+
+counterfact is framework-neutral. Beyond the drop-in LangGraph `StateGraph`, it
+ships optional adapters for other agent frameworks and eval platforms. These are
+**additive** — importing them never changes the core API, and existing LangGraph
+pipelines are unaffected.
+
+### OpenAI Agents SDK
+
+Wrap an [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) system
+(sequential, orchestrator + handoffs, or agents-as-tools) so each agent becomes an
+ablatable node. counterfact drives the agents as discrete steps — not the SDK's
+internal handoff loop — which is what makes "remove agent X and re-run" meaningful.
+
+```bash
+pip install counterfact[openai-agents]
+```
+
+```python
+from agents import Runner
+from counterfact.integrations.openai_agents import graph_from_orchestrator
+
+graph = graph_from_orchestrator(
+    triage_agent,                                  # the routing/handoff agent
+    {"billing": billing_agent, "tech": tech_agent},  # specialists it hands off to
+    finalizer=responder_agent,                     # composes the final reply
+)
+report = graph.diagnose(input_state={"input": ticket}, quality_fn=my_quality_fn)
+```
+
+### Braintrust
+
+Use a [Braintrust](https://www.braintrust.dev/) / `autoevals` scorer as the quality
+metric that drives Shapley attribution, and pull eval cases straight from a
+Braintrust dataset — so your attribution reflects the *same* scorer your evals use.
+
+```bash
+pip install counterfact[braintrust]
+```
+
+```python
+from autoevals import Factuality
+from counterfact.integrations.braintrust import (
+    quality_fn_from_scorer, cases_from_dataset, load_braintrust_dataset,
+)
+
+quality_fn = quality_fn_from_scorer(Factuality(), pass_input=True, input_key="input")
+cases = cases_from_dataset(load_braintrust_dataset("support", "refunds-eval"))
+reports = graph.diagnose_dataset([c["input"] for c in cases], quality_fn=quality_fn)
+```
+
+**Worked case studies** (all offline-reproducible, no API keys):
+
+- [`examples/openai_agents_skill/`](examples/openai_agents_skill/CASE_STUDY.md) — OpenAI Agents SDK **orchestrator-with-handoffs** support system scored by a Braintrust-style scorer. counterfact isolates a downstream agent that silently strips the answer (exonerating the obvious suspect) and fixes it 0/5 → 5/5.
+- [`examples/rag_degradation_skill/`](examples/rag_degradation_skill/CASE_STUDY.md) — a **RAG retriever → reranker → synthesizer** pipeline where pure ablation calls the reranker irrelevant, but graded degradation shows it is the quality driver and the retriever is merely structural.
+- [`examples/agents_as_tools_skill/`](examples/agents_as_tools_skill/CASE_STUDY.md) — OpenAI Agents SDK **agents-as-tools**, attributing a wrong answer to the specific sub-agent tool that caused it.
 
 ## Development
 

@@ -1,0 +1,27 @@
+[
+  {
+    "id": "t1",
+    "input": "Order #1042 was charged $250.00 but the customer cancelled within the window and is requesting a full refund.",
+    "expected": "$250.00"
+  },
+  {
+    "id": "t2",
+    "input": "Customer reports a duplicate charge of $89.99 on invoice INV-3310 and wants the extra charge refunded.",
+    "expected": "$89.99"
+  },
+  {
+    "id": "t3",
+    "input": "Subscription renewed at $19.95 after the customer had already cancelled; please refund the renewal.",
+    "expected": "$19.95"
+  },
+  {
+    "id": "t4",
+    "input": "Customer was billed $1,200.00 for an annual plan they did not authorize and is requesting a refund.",
+    "expected": "$1,200.00"
+  },
+  {
+    "id": "t5",
+    "input": "A $42.50 overage fee was applied in error on the latest billing cycle; the customer wants it refunded.",
+    "expected": "$42.50"
+  }
+]

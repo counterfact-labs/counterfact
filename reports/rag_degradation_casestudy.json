@@ -1,0 +1,52 @@
+{
+  "system": "RAG retriever -> reranker -> synthesizer (offline, deterministic)",
+  "top_k": 2,
+  "n_cases": 5,
+  "magnitudes": [
+    0.25,
+    0.5,
+    0.75,
+    1.0
+  ],
+  "ablation_shapley": {
+    "retriever": 0.5,
+    "reranker": 0.0,
+    "synthesizer": 0.5
+  },
+  "degradation": {
+    "retriever": {
+      "sensitivity": 1.0,
+      "partial_sensitivity": 0.0,
+      "classification": "structural",
+      "mean_curve": [
+        1.0,
+        1.0,
+        1.0,
+        0.0
+      ]
+    },
+    "reranker": {
+      "sensitivity": 0.0,
+      "partial_sensitivity": 1.0,
+      "classification": "quality_driver",
+      "mean_curve": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "synthesizer": {
+      "sensitivity": 1.0,
+      "partial_sensitivity": 1.0,
+      "classification": "quality_driver",
+      "mean_curve": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "lesson": "Ablation calls the reranker irrelevant (removing it is a harmless pass-through, Shapley ~0), but graded degradation classifies it a quality_driver: decaying its ranking pushes the relevant passage out of the synthesizer's top-k and answers fail. The retriever is structural (only full removal hurts)."
+}

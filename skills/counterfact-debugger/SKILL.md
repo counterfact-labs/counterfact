@@ -7,7 +7,8 @@ description: >-
   LangGraph StateGraph) that produces wrong, hallucinated, empty, or inconsistent output
   and wants to know which node to blame and how to fix it — rather than guessing from logs.
   Triggers: "which agent is breaking my pipeline", "debug my LangGraph", "my RAG keeps
-  hallucinating and I don't know why", "attribute this failure", "counterfactual analysis".
+  hallucinating and I don't know why", "attribute this failure", "counterfactual analysis",
+  "is my retriever the problem", "does retrieval/reranking quality matter here".
 ---
 
 # Counterfact Debugger
@@ -97,6 +98,29 @@ python scripts/cf_diagnose.py \
 This writes `report.json` (machine-readable) and `report.md` (human-readable). Read both.
 Bump `--num-simulations` (50–100) if attribution comes back inconclusive.
 
+### 4b. Ablation vs graded degradation — pick the right perturbation
+Plain ablation (the default above) replaces a node with a no-op. For some modules that is the
+wrong question. Ablate a **retriever** and the pipeline gets no context at all and structurally
+collapses; the huge Shapley just says "this is necessary," not whether *retrieval quality* is
+what's hurting answers. The same is true of parsers, routers, and context builders.
+
+For those, run **graded degradation** instead, which progressively worsens a node's output
+(`magnitude=1.0` is ablation, the endpoint of the spectrum) and classifies each node:
+```bash
+python scripts/cf_diagnose.py --factory ... --inputs ... --sensitivity \
+  --magnitudes 0.25,0.5,0.75,1.0 --out sensitivity.json
+```
+Each node is labeled **quality_driver** (improving it should help), **structural** (needed to
+run, but quality is insensitive to partial degradation — ablation is the blunt signal),
+**harmful** (degrading/removing it *improves* quality), or **robust** (low impact). Built-in
+degraders are auto-selected per module type; override per node with `--degraders module:function`
+returning `{node: Degrader}` (see `reference/ablation-vs-degradation.md`).
+
+**You do not have to choose up front.** If a plain ablation run prints a `HINT:` that the top
+agent's removal looks structural (large positive Shapley on a failing pipeline), re-run with
+`--sensitivity`. Reach for degradation by default whenever a suspect is a retriever/parser/
+context builder; it subsumes ablation and tells structural from quality-driving.
+
 ### 5. Interpret — do not over-read the numbers
 Read `reference/failure-taxonomy.md` and `reference/reading-attribution.md`, then:
 - Branch on `classification.failure_type`: `local` / `systemic` / `architectural_gap` /
@@ -121,9 +145,12 @@ deltas. If the culprit's score didn't move, the fix was wrong — say so and ite
 - `reference/failure-taxonomy.md` — what each `failure_type` means and the fix it implies.
 - `reference/reading-attribution.md` — Shapley values, bootstrap CIs, dominant≠culprit, the
   inconclusive case.
+- `reference/ablation-vs-degradation.md` — when pure ablation misleads (retrievers, parsers),
+  the degrader library, magnitude sweeps, and how to read the four node classifications.
 - `reference/report-schema.md` — `DiagnosticReport` fields, classifier signature, examples.
 
 ## Scripts
-- `scripts/cf_diagnose.py` — load factory + inputs, wire `llm_fn`, run `diagnose`, emit reports.
+- `scripts/cf_diagnose.py` — load factory + inputs, wire `llm_fn`, run `diagnose` (ablation) or
+  `--sensitivity` (graded degradation), emit reports.
 - `scripts/llm_fn.py` — default Anthropic/Google LLM caller from env (importable + standalone).
 - `scripts/verify.py` — compare two diagnose reports to confirm a fix moved the attribution.

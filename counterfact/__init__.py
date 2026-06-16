@@ -108,6 +108,20 @@ from counterfact.recommendations import (
     generate_recommendations,
     rank_recommendations,
 )
+
+# ─── Sensitivity (graded degradation, not just ablation) ─────────────────
+from counterfact.sensitivity import (
+    NodeSensitivity,
+    SensitivityReport,
+    drop_fields,
+    drop_items,
+    drop_sentences,
+    infer_module_type,
+    inject_distractors,
+    run_degradation_analysis,
+    shuffle_relevance,
+    truncate_text,
+)
 from counterfact.spec import (
     EdgeSpec,
     GraphSpec,
@@ -241,4 +255,15 @@ __all__ = [
     "SearchSpace",
     "OptimizationResult",
     "OptTrialResult",
+    # Sensitivity (graded degradation)
+    "run_degradation_analysis",
+    "SensitivityReport",
+    "NodeSensitivity",
+    "infer_module_type",
+    "drop_items",
+    "shuffle_relevance",
+    "inject_distractors",
+    "truncate_text",
+    "drop_sentences",
+    "drop_fields",
 ]

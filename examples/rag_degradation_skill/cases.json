@@ -1,0 +1,7 @@
+[
+  {"id": "capex",     "query": "What was 3M's FY2018 capital expenditure (purchases of PP&E)?", "gold": "$1,577 million"},
+  {"id": "dividends", "query": "How much did 3M pay in dividends in FY2018?",                    "gold": "$3,193 million"},
+  {"id": "buyback",   "query": "What were 3M's FY2018 repurchases of common stock?",            "gold": "$4,870 million"},
+  {"id": "da",        "query": "What was 3M's depreciation and amortization in FY2018?",        "gold": "$1,488 million"},
+  {"id": "ocf",       "query": "What was 3M's net cash from operating activities in FY2018?",   "gold": "$6,439 million"}
+]

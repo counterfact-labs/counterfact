@@ -1,0 +1,45 @@
+{
+  "system": "openai-agents-sdk orchestrator+handoffs (offline, deterministic)",
+  "scorer": "braintrust-style refund_amount_present",
+  "n_cases": 5,
+  "baseline_pass_rate": 0.0,
+  "final_pass_rate": 1.0,
+  "fixes_applied": [
+    "compliance_editor"
+  ],
+  "diagnosis_timeline": [
+    {
+      "shapley": {
+        "orchestrator": 0.204,
+        "billing": 0.0,
+        "technical": 0.153,
+        "account": 0.153,
+        "compliance_editor": -0.49
+      },
+      "picked": "compliance_editor",
+      "picked_shapley": -0.49
+    }
+  ],
+  "final_case_results": [
+    {
+      "id": "t1",
+      "passed": true
+    },
+    {
+      "id": "t2",
+      "passed": true
+    },
+    {
+      "id": "t3",
+      "passed": true
+    },
+    {
+      "id": "t4",
+      "passed": true
+    },
+    {
+      "id": "t5",
+      "passed": true
+    }
+  ]
+}
