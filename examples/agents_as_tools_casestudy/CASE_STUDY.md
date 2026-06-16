@@ -4,7 +4,7 @@ This case study covers the third OpenAI Agents SDK pattern: agents-as-tools, whe
 a top agent calls sub-agents as callable tools. It is offline and deterministic:
 
 ```bash
-PYTHONPATH=examples python -m agents_as_tools_skill.run_casestudy
+PYTHONPATH=examples python -m agents_as_tools_casestudy.run_casestudy
 ```
 
 ## The system
@@ -47,7 +47,7 @@ The debugging loop fixes the most implicated editable tool, `unit_converter`
 
 The same counterfact machinery handles all three OpenAI Agents SDK patterns. The
 sequential and orchestrator-with-handoffs patterns are covered in
-[`openai_agents_skill`](../openai_agents_skill/CASE_STUDY.md); this one shows that
+[`openai_agents_casestudy`](../openai_agents_casestudy/CASE_STUDY.md); this one shows that
 a top agent calling sub-agents as tools is just another wiring of ablatable nodes.
 For a tool that is retrieval-like (a search sub-agent), prefer graded degradation
-over ablation; see [`rag_degradation_skill`](../rag_degradation_skill/CASE_STUDY.md).
+over ablation; see [`rag_degradation_casestudy`](../rag_degradation_casestudy/CASE_STUDY.md).

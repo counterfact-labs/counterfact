@@ -11,7 +11,7 @@ and print them side by side. The point: ablation calls the reranker irrelevant
 driver (decaying its ranking pushes the relevant passage out of the synthesizer's
 top-k and answers fail).
 
-Run: PYTHONPATH=examples python -m rag_degradation_skill.run_casestudy
+Run: PYTHONPATH=examples python -m rag_degradation_casestudy.run_casestudy
 """
 
 from __future__ import annotations

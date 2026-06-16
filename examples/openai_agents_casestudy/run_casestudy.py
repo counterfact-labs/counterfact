@@ -12,7 +12,7 @@ Pipeline of the case study itself:
 
 Run:
 
-    PYTHONPATH=examples python -m openai_agents_skill.run_casestudy
+    PYTHONPATH=examples python -m openai_agents_casestudy.run_casestudy
 
 Deterministic (no network, fixed seed): the same numbers every run.
 """

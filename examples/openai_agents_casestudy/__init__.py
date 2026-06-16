@@ -10,5 +10,5 @@ autoevals ``scorer(output, expected) -> Score`` interface used by Braintrust.
 
 Run it:
 
-    PYTHONPATH=examples python -m openai_agents_skill.run_casestudy
+    PYTHONPATH=examples python -m openai_agents_casestudy.run_casestudy
 """

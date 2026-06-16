@@ -5,7 +5,7 @@ writes the reply. The answer is wrong (542 m instead of 330 m). All three tools
 "ran fine", so which is at fault? counterfact ablates each tool-agent, re-runs the
 chain, and attributes the failure. It then fixes the implicated tool and confirms.
 
-Run: PYTHONPATH=examples python -m agents_as_tools_skill.run_casestudy
+Run: PYTHONPATH=examples python -m agents_as_tools_casestudy.run_casestudy
 """
 
 from __future__ import annotations

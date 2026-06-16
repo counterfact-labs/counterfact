@@ -1,7 +1,7 @@
 """Render a shareable HTML report for the agents-as-tools case study.
 
-    PYTHONPATH=examples python -m agents_as_tools_skill.run_casestudy   # writes the JSON
-    PYTHONPATH=examples python -m agents_as_tools_skill.make_report     # writes the HTML
+    PYTHONPATH=examples python -m agents_as_tools_casestudy.run_casestudy   # writes the JSON
+    PYTHONPATH=examples python -m agents_as_tools_casestudy.make_report     # writes the HTML
 
 Single self-contained file with inline CSS; numbers are read from the JSON.
 """
@@ -93,7 +93,7 @@ degradation over ablation.</p>
 
 <div class="footer">
 Generated from <code>reports/agents_as_tools_casestudy.json</code>. Reproduce offline with
-<code>PYTHONPATH=examples python -m agents_as_tools_skill.run_casestudy</code>.
+<code>PYTHONPATH=examples python -m agents_as_tools_casestudy.run_casestudy</code>.
 </div>
 
 </body></html>"""

@@ -1,8 +1,8 @@
 """Render a shareable, self-contained HTML report for the OpenAI Agents SDK
 case study from the JSON produced by ``run_casestudy``.
 
-    PYTHONPATH=examples python -m openai_agents_skill.run_casestudy   # writes the JSON
-    PYTHONPATH=examples python -m openai_agents_skill.make_report     # writes the HTML
+    PYTHONPATH=examples python -m openai_agents_casestudy.run_casestudy   # writes the JSON
+    PYTHONPATH=examples python -m openai_agents_casestudy.make_report     # writes the HTML
 
 The HTML is a single file with inline CSS (no external assets), suitable for
 sending to a customer. Numbers are read from the generated JSON; the before/after
@@ -148,7 +148,7 @@ ordinary observability trace.</p>
 
 <div class="footer">
 Generated from <code>reports/openai_agents_casestudy.json</code>. Reproduce offline with
-<code>PYTHONPATH=examples python -m openai_agents_skill.run_casestudy</code>.
+<code>PYTHONPATH=examples python -m openai_agents_casestudy.run_casestudy</code>.
 </div>
 
 </body></html>"""

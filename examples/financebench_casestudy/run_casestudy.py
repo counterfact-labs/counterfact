@@ -9,7 +9,7 @@ Then recompute the LLM-as-debugger baseline LIVE (no hardcoded numbers) and
 compare its agent ranking to the causal Shapley ranking.
 
 Deterministic-as-possible: seed=42, temperature=0.0, process-level call cache.
-Writes reports/financebench_skill_casestudy.{json,md}.
+Writes reports/financebench_casestudy_casestudy.{json,md}.
 
 Config (env overrides for cheaper runs):
     FB_SIMS=30      simulations per query per diagnosis
@@ -18,7 +18,7 @@ Config (env overrides for cheaper runs):
 
 Run:
     export ANTHROPIC_API_KEY=...
-    PYTHONPATH=examples python -m financebench_skill.run_casestudy
+    PYTHONPATH=examples python -m financebench_casestudy.run_casestudy
 """
 from __future__ import annotations
 
@@ -30,11 +30,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import time
 
-from financebench_skill import data, prompts
-from financebench_skill.llm import SONNET, cache_stats, call
-from financebench_skill.pipeline import build
-from financebench_skill.progress import Progress
-from financebench_skill.quality import build_registry
+from financebench_casestudy import data, prompts
+from financebench_casestudy.llm import SONNET, cache_stats, call
+from financebench_casestudy.pipeline import build
+from financebench_casestudy.progress import Progress
+from financebench_casestudy.quality import build_registry
 
 FIXABLE = ["table_extractor", "context_enricher", "fact_checker", "tone_editor"]
 BROKEN0 = dict(prompts.INSTRUCTIONS)  # snapshot of the broken instructions at import
@@ -202,7 +202,7 @@ def main():
               "steps": steps,
               "llm_baseline": {"ranking": llm.get("ranking", []), "reasoning": llm.get("reasoning", "")},
               "shapley_ranking_step0": shapley_rank}
-    with open(os.path.join(rdir, "financebench_skill_casestudy.json"), "w") as f:
+    with open(os.path.join(rdir, "financebench_casestudy_casestudy.json"), "w") as f:
         json.dump(result, f, indent=2, default=str)
 
     md = ["# FinanceBench Case Study — Skill-Driven Reproduction",
@@ -224,9 +224,9 @@ def main():
     md.append(f"**LLM ranking (most→least responsible):** {', '.join(llm.get('ranking', [])) or 'n/a'}\n")
     md.append(f"**Causal Shapley ranking (most-harmful→least, step 0):** {', '.join(shapley_rank)}\n")
     md.append(f"\n_LLM reasoning:_ {llm.get('reasoning','')}\n")
-    with open(os.path.join(rdir, "financebench_skill_casestudy.md"), "w") as f:
+    with open(os.path.join(rdir, "financebench_casestudy_casestudy.md"), "w") as f:
         f.write("\n".join(md))
-    print(f"\nwrote {rdir}/financebench_skill_casestudy.(json|md)", file=sys.stderr)
+    print(f"\nwrote {rdir}/financebench_casestudy_casestudy.(json|md)", file=sys.stderr)
     print(json.dumps({"final_quality": steps[-1]["avg_quality"], "final_exact": steps[-1]["exact"],
                       "steps": len(steps) - 1, "llm_top": llm.get("ranking", [])[:3],
                       "shapley_top_harmful": shapley_rank[:3]}, indent=2))

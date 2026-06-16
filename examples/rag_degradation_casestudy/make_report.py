@@ -1,7 +1,7 @@
 """Render a shareable HTML report for the RAG degradation case study.
 
-    PYTHONPATH=examples python -m rag_degradation_skill.run_casestudy   # writes the JSON
-    PYTHONPATH=examples python -m rag_degradation_skill.make_report     # writes the HTML
+    PYTHONPATH=examples python -m rag_degradation_casestudy.run_casestudy   # writes the JSON
+    PYTHONPATH=examples python -m rag_degradation_casestudy.make_report     # writes the HTML
 
 Single self-contained file with inline CSS; numbers are read from the JSON.
 """
@@ -122,7 +122,7 @@ loss and separates structural dependencies from the modules whose quality drives
 
 <div class="footer">
 Generated from <code>reports/rag_degradation_casestudy.json</code>. Reproduce offline with
-<code>PYTHONPATH=examples python -m rag_degradation_skill.run_casestudy</code>.
+<code>PYTHONPATH=examples python -m rag_degradation_casestudy.run_casestudy</code>.
 </div>
 
 </body></html>"""

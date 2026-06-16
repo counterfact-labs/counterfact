@@ -11,7 +11,7 @@ specific sub-agent tool that caused it. Here one tool (the unit converter) has a
 bug; counterfact's attribution finds it among the tools that all "ran fine."
 
 Deterministic and offline (reuses the agents_shim from the sibling
-openai_agents_skill package):
+openai_agents_casestudy package):
 
-    PYTHONPATH=examples python -m agents_as_tools_skill.run_casestudy
+    PYTHONPATH=examples python -m agents_as_tools_casestudy.run_casestudy
 """

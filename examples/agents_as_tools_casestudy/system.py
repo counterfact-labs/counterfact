@@ -19,7 +19,7 @@ import re
 from counterfact.integrations.openai_agents import graph_from_sequential
 
 # Reuse the deterministic SDK stand-in from the orchestrator case study.
-from openai_agents_skill.agents_shim import Agent, Runner
+from openai_agents_casestudy.agents_shim import Agent, Runner
 
 BUGGY_CONVERTER = "convert:buggy"
 FIXED_CONVERTER = "convert:fixed"

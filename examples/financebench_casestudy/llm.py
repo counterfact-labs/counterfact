@@ -9,7 +9,7 @@ repeated runs are cheap.
 
 Cache location (stable absolute path so it survives restarts and is shared across the
 temp workspaces the eval copies the package into):
-    $FB_LLM_CACHE  (if set)  else  ~/.cache/financebench_skill/
+    $FB_LLM_CACHE  (if set)  else  ~/.cache/financebench_casestudy/
 
 temperature defaults to 0.0. Disk writes are atomic (temp + os.replace), so the cache
 is safe under the ThreadPoolExecutor in run_casestudy and across concurrent processes.
@@ -26,7 +26,7 @@ SONNET = "claude-sonnet-4-6"
 HAIKU = "claude-haiku-4-5"
 
 _CACHE_DIR = pathlib.Path(
-    os.environ.get("FB_LLM_CACHE", pathlib.Path.home() / ".cache" / "financebench_skill")
+    os.environ.get("FB_LLM_CACHE", pathlib.Path.home() / ".cache" / "financebench_casestudy")
 )
 _CACHE_DIR.mkdir(parents=True, exist_ok=True)
 

@@ -21,9 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Skill support for degradation** — the `counterfact-debugger` skill gains a
   `--sensitivity` mode, auto-detects when an ablation result looks structural and
   nudges toward degradation, and ships a `reference/ablation-vs-degradation.md` guide.
-- **Two more worked case studies** — `examples/rag_degradation_skill/` (retriever
+- **Two more worked case studies** — `examples/rag_degradation_casestudy/` (retriever
   pipeline where degradation, not ablation, finds the quality lever) and
-  `examples/agents_as_tools_skill/` (OpenAI Agents SDK agents-as-tools).
+  `examples/agents_as_tools_casestudy/` (OpenAI Agents SDK agents-as-tools).
 
 - **OpenAI Agents SDK adapter** (`counterfact.integrations.openai_agents`) — wrap
   a sequential, orchestrator-with-handoffs, or agents-as-tools system so each
@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   attribution from the same metric your evals use, and convert Braintrust
   datasets into counterfact cases (`cases_from_dataset`, `load_braintrust_dataset`).
   Install with `counterfact[braintrust]`.
-- **Worked case study** (`examples/openai_agents_skill/`) — offline, deterministic
+- **Worked case study** (`examples/openai_agents_casestudy/`) — offline, deterministic
   walk-through that debugs an OpenAI Agents SDK orchestrator-with-handoffs support
   system scored by a Braintrust-style scorer (0/5 → 5/5).
 

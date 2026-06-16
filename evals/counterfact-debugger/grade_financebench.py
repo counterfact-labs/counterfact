@@ -45,8 +45,8 @@ def _exact_answers(workspace: Path, n_queries: int) -> tuple[int | None, list, s
     code = f"""
 import sys, json
 sys.path.insert(0, {str(workspace)!r})
-from financebench_skill import data
-from financebench_skill.pipeline import build
+from financebench_casestudy import data
+from financebench_casestudy.pipeline import build
 import re
 n = {n_queries}
 results = []

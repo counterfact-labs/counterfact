@@ -7,7 +7,7 @@ or the LLM baseline's #2 pick) barely helps — i.e. WHICH agent you fix matters
 causal diagnosis picks the right one.
 
 Run:
-    PYTHONPATH=examples python -m financebench_skill.compare_fix_order
+    PYTHONPATH=examples python -m financebench_casestudy.compare_fix_order
 """
 from __future__ import annotations
 
@@ -16,11 +16,11 @@ import os
 import re
 import sys
 
-from financebench_skill import data, prompts
-from financebench_skill.llm import cache_stats
-from financebench_skill.pipeline import build
-from financebench_skill.progress import Progress
-from financebench_skill.quality import build_registry
+from financebench_casestudy import data, prompts
+from financebench_casestudy.llm import cache_stats
+from financebench_casestudy.pipeline import build
+from financebench_casestudy.progress import Progress
+from financebench_casestudy.quality import build_registry
 
 BROKEN0 = dict(prompts.INSTRUCTIONS)
 

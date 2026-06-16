@@ -6,7 +6,7 @@ orchestrator-with-handoffs pattern and scored with a Braintrust scorer. It is
 offline and deterministic (no API keys, no network), so it reproduces exactly:
 
 ```bash
-PYTHONPATH=examples python -m openai_agents_skill.run_casestudy
+PYTHONPATH=examples python -m openai_agents_casestudy.run_casestudy
 ```
 
 ## The system

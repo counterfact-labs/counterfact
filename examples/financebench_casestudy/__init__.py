@@ -3,8 +3,8 @@
 A clean, factory-driven rebuild of the 8-agent financial-RAG demo so the
 counterfact-debugger Agent Skill can drive it directly:
 
-    cf_diagnose.py --factory financebench_skill.pipeline:build \
-                   --registry financebench_skill.quality:build_registry \
+    cf_diagnose.py --factory financebench_casestudy.pipeline:build \
+                   --registry financebench_casestudy.quality:build_registry \
                    --inputs cases.json --domain financebench
 
 Unlike the original research scripts, this package has NO thread-local global

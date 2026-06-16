@@ -21,6 +21,6 @@ retriever miss.
 
 Run it (deterministic, no API keys):
 
-    PYTHONPATH=examples python -m rag_degradation_skill.run_casestudy
-    PYTHONPATH=examples python -m rag_degradation_skill.make_report
+    PYTHONPATH=examples python -m rag_degradation_casestudy.run_casestudy
+    PYTHONPATH=examples python -m rag_degradation_casestudy.make_report
 """

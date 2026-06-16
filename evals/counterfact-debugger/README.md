@@ -8,7 +8,7 @@ tests (`counterfact/tests/test_skill_*.py`) can't cover.
 ## The eval (`run_eval_financebench.sh`)
 
 A headless agent is given the **broken 8-agent FinanceBench pipeline**
-(`examples/financebench_skill/`) + the skill, and a user-style report ("the answers are
+(`examples/financebench_casestudy/`) + the skill, and a user-style report ("the answers are
 missing the exact figures"). It must diagnose with real counterfactual ablation and fix the
 responsible agents' prompts. `grade_financebench.py` then runs the agent's **edited** pipeline
 on the FinanceBench queries and checks the exact-answer count recovered (broken baseline = 0/5).
@@ -20,7 +20,7 @@ N=3 FB_SIMS=12 evals/counterfact-debugger/run_eval_financebench.sh
 Requires the `claude` CLI, the repo `.venv` (with `counterfact` installed), and an
 `ANTHROPIC_API_KEY`. **This is an LLM eval: non-deterministic and token-consuming** — a single
 pass is evidence, not proof; run it a few times and watch the pass rate. The runs share the
-persistent on-disk LLM cache (`examples/financebench_skill/llm.py`), so repeats and restarts
+persistent on-disk LLM cache (`examples/financebench_casestudy/llm.py`), so repeats and restarts
 are cheap. Transcripts/verdicts land in `results/` (gitignored); failed runs keep their
 workspace for inspection. A heartbeat line reports elapsed time + cache growth while the
 agent's (otherwise hidden) `claude -p` session runs.

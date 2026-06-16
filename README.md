@@ -152,11 +152,11 @@ python skills/counterfact-debugger/scripts/cf_diagnose.py \
 Install it by copying `skills/counterfact-debugger/` into your agent's skills directory
 (e.g. `~/.claude/skills/`). See `SKILL.md` for the full workflow.
 
-**Worked case study:** [`examples/financebench_skill/CASE_STUDY.md`](examples/financebench_skill/CASE_STUDY.md)
+**Worked case study:** [`examples/financebench_casestudy/CASE_STUDY.md`](examples/financebench_casestudy/CASE_STUDY.md)
 walks the skill through diagnosing a real 8-agent financial-RAG pipeline on FinanceBench
 questions — finding the one agent (of four plausible suspects) that actually causes the
 failure, fixing it (0/5 → 5/5 exact answers), and showing where an LLM reading the traces
-gets it wrong. Fully reproducible: `PYTHONPATH=examples python -m financebench_skill.run_casestudy`.
+gets it wrong. Fully reproducible: `PYTHONPATH=examples python -m financebench_casestudy.run_casestudy`.
 
 ## Sensitivity analysis (graded degradation)
 
@@ -237,9 +237,9 @@ reports = graph.diagnose_dataset([c["input"] for c in cases], quality_fn=quality
 
 **Worked case studies** (all offline-reproducible, no API keys):
 
-- [`examples/openai_agents_skill/`](examples/openai_agents_skill/CASE_STUDY.md) — OpenAI Agents SDK **orchestrator-with-handoffs** support system scored by a Braintrust-style scorer. counterfact isolates a downstream agent that silently strips the answer (exonerating the obvious suspect) and fixes it 0/5 → 5/5.
-- [`examples/rag_degradation_skill/`](examples/rag_degradation_skill/CASE_STUDY.md) — a **RAG retriever → reranker → synthesizer** pipeline where pure ablation calls the reranker irrelevant, but graded degradation shows it is the quality driver and the retriever is merely structural.
-- [`examples/agents_as_tools_skill/`](examples/agents_as_tools_skill/CASE_STUDY.md) — OpenAI Agents SDK **agents-as-tools**, attributing a wrong answer to the specific sub-agent tool that caused it.
+- [`examples/openai_agents_casestudy/`](examples/openai_agents_casestudy/CASE_STUDY.md) — OpenAI Agents SDK **orchestrator-with-handoffs** support system scored by a Braintrust-style scorer. counterfact isolates a downstream agent that silently strips the answer (exonerating the obvious suspect) and fixes it 0/5 → 5/5.
+- [`examples/rag_degradation_casestudy/`](examples/rag_degradation_casestudy/CASE_STUDY.md) — a **RAG retriever → reranker → synthesizer** pipeline where pure ablation calls the reranker irrelevant, but graded degradation shows it is the quality driver and the retriever is merely structural.
+- [`examples/agents_as_tools_casestudy/`](examples/agents_as_tools_casestudy/CASE_STUDY.md) — OpenAI Agents SDK **agents-as-tools**, attributing a wrong answer to the specific sub-agent tool that caused it.
 
 ## Development
 
