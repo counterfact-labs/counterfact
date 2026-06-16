@@ -16,6 +16,13 @@ google-genai>=1.0.0
 # CLI (optional — install via pip install counterfact[cli])
 rich>=13.0.0
 
+# OpenAI Agents SDK adapter (optional — install via pip install counterfact[openai-agents])
+openai-agents
+
+# Braintrust adapter (optional — install via pip install counterfact[braintrust])
+braintrust
+autoevals
+
 # Development tools (install via pip install counterfact[dev])
 pytest>=8.0.0
 pytest-cov>=5.0.0

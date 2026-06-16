@@ -81,6 +81,7 @@ counterfact/
 ├── diagnostics.py    # Diagnostic orchestrator
 ├── perturbation.py   # Pipeline re-execution with ablations
 ├── attribution.py    # Shapley values & failure classification
+├── degradation.py    # Removal strategy: ablate, or severely degrade structural modules
 ├── classifiers.py    # Pluggable quality classifiers
 ├── recommendations.py # Automated fix suggestions
 ├── evals.py          # Ground-truth-free evaluation checks
@@ -94,6 +95,7 @@ counterfact/
 ├── llm.py            # LLM abstraction layer
 ├── async_engine.py   # Async equivalents of core functions
 ├── cli.py            # Command-line interface
+├── integrations/     # Optional adapters: OpenAI Agents SDK, Braintrust
 └── tests/            # Test suite
 ```
 
