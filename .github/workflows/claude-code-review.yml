@@ -1,10 +1,12 @@
 name: Claude Code Review
 
 # Automatically review every pull request with Claude Code's code-review skill.
-# Requires the repository secret ANTHROPIC_API_KEY (Settings -> Secrets and
-# variables -> Actions). Installing the Claude GitHub app (https://github.com/apps/claude)
-# is recommended so review comments are attributed to it; otherwise the default
-# GITHUB_TOKEN is used with the permissions declared below.
+# Setup (both required):
+#   1. Add the repository secret ANTHROPIC_API_KEY (Settings -> Secrets and
+#      variables -> Actions).
+#   2. Install the Claude GitHub app: https://github.com/apps/claude
+#      The app provides the token and the MCP tools the code-review skill uses to
+#      post inline review comments; without it the skill runs but cannot post.
 
 on:
   pull_request:
@@ -33,12 +35,6 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Use the workflow's own token so the action does not require the Claude
-          # GitHub App to be installed (the default path exchanges an OIDC token for
-          # an app token and 401s without the app). Installing the app instead
-          # (https://github.com/apps/claude) and removing this line also works, and
-          # attributes comments to the app rather than github-actions[bot].
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
           plugins: "code-review@claude-code-plugins"
           prompt: "/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
