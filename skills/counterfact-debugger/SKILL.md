@@ -43,7 +43,8 @@ Diagnosis **re-executes the whole pipeline ~`num_simulations` times per case**. 
 
 ### 1. Confirm prerequisites
 - `counterfact` is importable in the project's Python env (`python -c "import counterfact"`).
-  If not: `pip install counterfact[anthropic]` (or `[all]`).
+  If not (it is not yet on PyPI, so install from git):
+  `pip install "counterfact[anthropic] @ git+https://github.com/counterfact-labs/counterfact.git"` (or `[all]`).
 - An LLM key is set for quality classifiers: `ANTHROPIC_API_KEY` (preferred) or
   `GOOGLE_API_KEY`. Without it, only structural classifiers run — note the weaker signal.
 

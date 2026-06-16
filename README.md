@@ -33,16 +33,21 @@ Ablate Critic: [Retriever] → [Synthesizer] → [no-op] → output (quality: 0.
 
 ## Installation
 
+`counterfact` is not yet published to PyPI — install it from GitHub:
+
 ```bash
-pip install counterfact
+pip install "counterfact @ git+https://github.com/counterfact-labs/counterfact.git"
 ```
 
 With optional provider support (needed for quality classifiers):
 
 ```bash
-pip install counterfact[google]      # Google Gemini support
-pip install counterfact[anthropic]   # Anthropic Claude support
-pip install counterfact[all]         # All providers + CLI
+# Google Gemini support
+pip install "counterfact[google] @ git+https://github.com/counterfact-labs/counterfact.git"
+# Anthropic Claude support
+pip install "counterfact[anthropic] @ git+https://github.com/counterfact-labs/counterfact.git"
+# All providers + CLI
+pip install "counterfact[all] @ git+https://github.com/counterfact-labs/counterfact.git"
 ```
 
 > **Try it now**: Run `python examples/quickstart.py` for a self-contained demo. (Requires `ANTHROPIC_API_KEY` to run LLM-based grounding and catch hallucinations).
@@ -94,6 +99,7 @@ counterfact/
 ├── classifiers.py      # Quality scoring with pluggable classifiers
 ├── discovery.py        # Pipeline structure analysis
 ├── attribution.py      # Shapley value & LOO attribution
+├── degradation.py      # Removal strategy: ablate, or severely degrade structural modules
 ├── perturbation.py     # Real pipeline re-execution engine
 ├── diagnostics.py      # Full diagnostic orchestrator
 ├── recommendations.py  # Evidence-based fix generation
@@ -105,7 +111,8 @@ counterfact/
 ├── export.py           # Report export (markdown, JSON, HTML)
 ├── llm.py              # LLM abstraction layer
 ├── async_engine.py     # Async execution engine
-└── cli.py              # CLI (eval + discover commands)
+├── cli.py              # CLI (eval + discover commands)
+└── integrations/       # Optional adapters: OpenAI Agents SDK, Braintrust
 ```
 
 ## CLI
@@ -196,7 +203,7 @@ ablatable node. counterfact drives the agents as discrete steps — not the SDK'
 internal handoff loop — which is what makes "remove agent X and re-run" meaningful.
 
 ```bash
-pip install counterfact[openai-agents]
+pip install "counterfact[openai-agents] @ git+https://github.com/counterfact-labs/counterfact.git"
 ```
 
 ```python
@@ -218,7 +225,7 @@ metric that drives Shapley attribution, and pull eval cases straight from a
 Braintrust dataset — so your attribution reflects the *same* scorer your evals use.
 
 ```bash
-pip install counterfact[braintrust]
+pip install "counterfact[braintrust] @ git+https://github.com/counterfact-labs/counterfact.git"
 ```
 
 ```python
