@@ -2,51 +2,28 @@
   "system": "RAG retriever -> reranker -> synthesizer (offline, deterministic)",
   "top_k": 2,
   "n_cases": 5,
-  "magnitudes": [
-    0.25,
-    0.5,
-    0.75,
-    1.0
-  ],
-  "ablation_shapley": {
-    "retriever": 0.5,
-    "reranker": 0.0,
-    "synthesizer": 0.5
+  "removal_strategies": {
+    "retriever": "degrade",
+    "reranker": "degrade",
+    "synthesizer": "ablate"
   },
-  "degradation": {
-    "retriever": {
-      "sensitivity": 1.0,
-      "partial_sensitivity": 0.0,
-      "classification": "structural",
-      "mean_curve": [
-        1.0,
-        1.0,
-        1.0,
-        0.0
-      ]
+  "pure_ablation": {
+    "shapley": {
+      "retriever": 0.5,
+      "reranker": 0.0,
+      "synthesizer": 0.5
     },
-    "reranker": {
-      "sensitivity": 0.0,
-      "partial_sensitivity": 1.0,
-      "classification": "quality_driver",
-      "mean_curve": [
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ]
-    },
-    "synthesizer": {
-      "sensitivity": 1.0,
-      "partial_sensitivity": 1.0,
-      "classification": "quality_driver",
-      "mean_curve": [
-        1.0,
-        0.0,
-        0.0,
-        0.0
-      ]
-    }
+    "structural_failures": 30,
+    "runs": 105
   },
-  "lesson": "Ablation calls the reranker irrelevant (removing it is a harmless pass-through, Shapley ~0), but graded degradation classifies it a quality_driver: decaying its ranking pushes the relevant passage out of the synthesizer's top-k and answers fail. The retriever is structural (only full removal hurts)."
+  "auto_degrade": {
+    "shapley": {
+      "retriever": 0.333,
+      "reranker": 0.333,
+      "synthesizer": 0.333
+    },
+    "structural_failures": 0,
+    "runs": 105
+  },
+  "lesson": "Removing the retriever entirely (pure ablation) leaves the synthesizer with no context and the run structurally fails, so the retriever's attribution only says 'necessary'. diagnose instead severely degrades the retriever (and reranker): the run stays live and their contribution is measured as a real quality effect."
 }

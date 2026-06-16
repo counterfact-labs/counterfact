@@ -1,9 +1,7 @@
-# When ablation misleads: finding the quality lever in a RAG pipeline
+# Why diagnose degrades a retriever instead of ablating it
 
-This case study shows why counterfact supports graded degradation, not just
-ablation. It runs the [`counterfact-debugger`](../../skills/counterfact-debugger/)
-skill against a three-stage RAG pipeline and is offline and deterministic (no API
-keys), so it reproduces exactly:
+This case study shows the removal strategy `diagnose` uses on a retrieval pipeline.
+It is offline and deterministic (no API keys), so it reproduces exactly:
 
 ```bash
 PYTHONPATH=examples python -m rag_degradation_casestudy.run_casestudy
@@ -12,71 +10,56 @@ PYTHONPATH=examples python -m rag_degradation_casestudy.make_report
 
 ## The system
 
-A standard retrieval pipeline:
+A standard three-stage pipeline. The synthesizer answers from the top-2 retrieved
+passages, so it genuinely depends on retrieval: with no context there is nothing
+to answer from.
 
 ```
-retriever --> reranker --> synthesizer
+retriever --> reranker --> synthesizer  (reads top 2)
 ```
 
-The retriever returns ranked passages, the reranker orders them, and the
-synthesizer reads only the top 2 passages (a stand-in for an LLM with a limited
-context budget) to write the answer. The eval rule is that the answer must
-contain the exact figure from the filing.
+## The problem with ablating everything
 
-This pipeline passes its eval on all five questions. So the question is not "what
-is broken." It is the question teams actually face once a pipeline works: which
-module's quality is the real lever, and where is the pipeline fragile?
+To attribute a failure, `diagnose` removes each node from coalitions and measures
+the quality change. If every removal is a plain ablation (a no-op), removing the
+retriever leaves the synthesizer with no passages and the run **structurally
+fails**. Across the five cases, pure ablation produces this:
 
-## Ablation gives a misleading answer
-
-Replacing each node with a no-op and re-running (the default counterfactual)
-produces this Shapley attribution:
-
-| node | ablation Shapley |
+| node | pure-ablation Shapley |
 |---|---|
 | retriever | +0.50 |
 | synthesizer | +0.50 |
 | reranker | +0.00 |
 
-Read literally, this says the retriever and synthesizer matter and the reranker
-is dead weight. The reranker scores zero because removing it is a harmless
-pass-through: the retriever already happens to return the relevant passage near
-the top on these cases, so skipping the reranker changes nothing. A team acting
-on this would stop tuning the reranker and pour effort into the retriever.
+with **30 of 105 coalition runs ending in a pipeline error**. The retriever's
+score only says "the pipeline needs a retriever," and the reranker reads as
+irrelevant (removing it is a harmless pass-through), so the attribution is both
+distorted by errors and blind to ranking quality.
 
-## Graded degradation gives the right answer
+## What diagnose does instead
 
-Instead of removing each module, degrade its output across a range of magnitudes
-(magnitude 1.0 is full ablation) and watch how answer quality responds:
+`diagnose` classifies each node by type and removes it accordingly: the retriever
+and reranker are **severely degraded** (they still run and return a non-empty doc
+list, but the content is replaced with low-relevance placeholders), while the
+synthesizer (a generator) is ablated. Re-running the same cases:
 
-| node | classification | what the curve shows |
+| node | auto Shapley | strategy |
 |---|---|---|
-| retriever | structural | quality holds under partial degradation and only falls when the retriever is fully removed |
-| reranker | quality_driver | decaying the ranking even slightly pushes the relevant passage out of the top-2 window, and answers fail |
-| synthesizer | quality_driver | degrading the written answer drops the figure |
+| retriever | +0.33 | degrade |
+| reranker | +0.33 | degrade |
+| synthesizer | +0.33 | ablate |
 
-The reranker, which ablation rated a flat zero, is in fact a quality driver. The
-retriever, which ablation rated important, is merely structural: as long as it
-returns the relevant passage somewhere, its ranking quality does not change the
-answer; the reranker is what decides whether the relevant passage lands inside
-the synthesizer's context window.
+with **0 of 105 structural failures**. Every coalition run stays live, so the
+retriever and reranker are measured as real quality contributors rather than
+collapsing the pipeline. The reranker, invisible under pure ablation (+0.00), now
+shows the contribution it actually makes.
 
-This is the distinction ablation cannot make. A retriever and a reranker can both
-show up as "necessary" (or, worse, the reranker as "irrelevant") under ablation,
-while only one of them is where answer quality is actually won or lost.
+## Takeaway
 
-## Why this matters
-
-For a team running evals on a retrieval system, the practical takeaway is that
-the lever is ranking quality, not retrieval recall, on these cases. counterfact
-reaches that conclusion by re-running the real pipeline under controlled
-degradation, not by reading a trace or trusting a single on/off ablation.
-
-## How to run it on a real system
-
-`graph.diagnose_sensitivity(...)` (or the skill runner with `--sensitivity`)
-takes the same factory and inputs as ordinary diagnosis. Built-in degraders are
-selected per module type (drop ranked items for a retriever, decay order for a
-reranker, drop sentences for a generator); override any of them per node with a
-custom degrader `(value, magnitude, rng) -> value`. See
+Removing a structural module by no-op answers "is it load-bearing" and, when the
+rest of the pipeline depends on it, just breaks the run. Severely degrading it
+(destroy the content, keep the shape) answers the more useful question, how much
+the module's output quality is worth, without the structural failure. `diagnose`
+makes that choice automatically, by inferred module type; the strategy it used is
+in `report.simulation_results_summary["removal_strategies"]`. See
 [`reference/ablation-vs-degradation.md`](../../skills/counterfact-debugger/reference/ablation-vs-degradation.md).

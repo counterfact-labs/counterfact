@@ -152,60 +152,6 @@ def _short(value, n: int = 70) -> str:
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
-def _run_sensitivity(factory, inputs, args, registry, fn, degraders_map, mags) -> None:
-    """Run graded-degradation sensitivity analysis per case and report classifications."""
-    out_path = Path(args.out)
-    multi = len(inputs) > 1
-    print(f"counterfact sensitivity | magnitudes: {mags} | cases: {len(inputs)}", file=sys.stderr)
-    summaries = []
-    for i, state in enumerate(inputs):
-        graph = _build_graph(factory)
-        print(f"\n[case {i + 1}/{len(inputs)}] input: {_short(state)}", file=sys.stderr)
-        report = graph.diagnose_sensitivity(
-            state,
-            degraders=degraders_map,
-            magnitudes=mags,
-            registry=registry,
-            llm_fn=fn,
-            domain=args.domain,
-            seed=args.seed,
-            progress_callback=_progress_printer(f"case {i + 1}/{len(inputs)}"),
-        )
-        case_json = out_path if not multi else out_path.with_name(f"{out_path.stem}_{i + 1}{out_path.suffix}")
-        case_md = case_json.with_suffix(".md")
-        case_json.write_text(json.dumps(report.to_dict(), indent=2))
-        report.to_markdown(str(case_md))
-
-        print(f"  baseline quality {report.baseline_quality:.3f} | per-node dose-response:", file=sys.stderr)
-        for n in report.ranked():
-            print(f"    {n.node:16} {n.module_type:9} {n.classification:13} "
-                  f"sens {n.sensitivity:+.3f} (partial {n.partial_sensitivity:+.3f})", file=sys.stderr)
-        drivers = [n.node for n in report.nodes if n.classification == "quality_driver"]
-        harmful = [n.node for n in report.nodes if n.classification == "harmful"]
-        structural = [n.node for n in report.nodes if n.classification == "structural"]
-        if drivers:
-            print(f"  -> quality drivers (improving these should help): {drivers}", file=sys.stderr)
-        if harmful:
-            print(f"  -> harmful (degrading/removing improves quality): {harmful}", file=sys.stderr)
-        print(f"  -> wrote {case_json} and {case_md}", file=sys.stderr)
-        top = report.most_sensitive()
-        summaries.append({
-            "case": i + 1,
-            "baseline_quality": round(report.baseline_quality, 3),
-            "most_sensitive": top.node if top else None,
-            "quality_drivers": drivers,
-            "harmful": harmful,
-            "structural": structural,
-            "report_json": str(case_json),
-            "report_md": str(case_md),
-        })
-    if multi:
-        agg_path = out_path.with_name(f"{out_path.stem}_summary.json")
-        agg_path.write_text(json.dumps(summaries, indent=2))
-        print(f"\nwrote aggregate summary: {agg_path}", file=sys.stderr)
-    print(json.dumps(summaries if multi else summaries[0], indent=2))
-
-
 def main() -> None:
     p = argparse.ArgumentParser(description="Run counterfact full counterfactual diagnosis.")
     p.add_argument("--factory", required=True, help="module:function -> compiled counterfact graph")
@@ -216,17 +162,6 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility (default: 42)")
     p.add_argument("--provider", default=None, choices=["anthropic", "google"], help="Force LLM provider")
     p.add_argument("--no-llm", action="store_true", help="Skip LLM classifiers (structural only)")
-    p.add_argument("--sensitivity", action="store_true",
-                   help="Run GRADED DEGRADATION instead of pure ablation. For each node, "
-                        "progressively degrade its output (magnitude 1.0 = ablation) and "
-                        "classify the dose-response: quality_driver / structural / harmful / "
-                        "robust. Use this when a module (retriever, parser, context builder) "
-                        "would just structurally collapse the pipeline if fully ablated.")
-    p.add_argument("--degraders", default=None,
-                   help="module:function -> {node_name: Degrader} overrides for --sensitivity "
-                        "(optional; built-in degraders are auto-selected by module type otherwise)")
-    p.add_argument("--magnitudes", default="0.25,0.5,1.0",
-                   help="Comma-separated degradation magnitudes for --sensitivity (default 0.25,0.5,1.0)")
     p.add_argument("--dry-run", action="store_true",
                    help="Run the pipeline ONCE (baseline only), print the output and the "
                         "re-execution budget a full diagnosis would incur, then exit. Use this "
@@ -280,20 +215,6 @@ def main() -> None:
         }, indent=2, default=str))
         return
 
-    # ── Sensitivity mode: graded degradation instead of pure ablation ──
-    if args.sensitivity:
-        if fn is not None:
-            # Built-in classifiers read a globally-injected LLM caller.
-            from counterfact.classifiers import set_llm_caller
-            set_llm_caller(fn)
-        degraders_map = _resolve(args.degraders, "degraders")() if args.degraders else None
-        try:
-            mags = tuple(float(x) for x in args.magnitudes.split(","))
-        except ValueError:
-            _die(f"--magnitudes must be comma-separated floats, got {args.magnitudes!r}")
-        _run_sensitivity(factory, inputs, args, registry, fn, degraders_map, mags)
-        return
-
     out_path = Path(args.out)
     md_path = out_path.with_suffix(".md")
     multi = len(inputs) > 1
@@ -330,15 +251,13 @@ def main() -> None:
               f"| top agent: {top[0]} ({top[1]:+.3f}) "
               f"| method: {report.attribution_method}", file=sys.stderr)
 
-        # Auto-detect: a strongly POSITIVE top Shapley on a low-quality baseline
-        # means removing that agent collapses the pipeline — i.e. ablation is the
-        # blunt, structural signal. Nudge the agent toward graded degradation.
-        if report.baseline_quality < 0.5 and top[1] > 0.3:
-            print(f"  HINT: ablating '{top[0]}' mostly causes a structural collapse "
-                  f"(large positive Shapley on a failing pipeline), which says it is "
-                  f"NECESSARY but not whether its OUTPUT QUALITY is the problem. If it is a "
-                  f"retriever/parser/context builder, re-run with --sensitivity to measure "
-                  f"graded degradation and tell structural from quality-driving.", file=sys.stderr)
+        # Transparency: which modules were severely degraded rather than ablated
+        # (structural modules like retrievers/parsers — chosen automatically so
+        # their removal does not collapse the pipeline and skew attribution).
+        degraded = [n for n, s in (report.simulation_results_summary.get("removal_strategies") or {}).items()
+                    if s == "degrade"]
+        if degraded:
+            print(f"  note: severely degraded (not ablated) as structural modules: {degraded}", file=sys.stderr)
         print(f"  -> wrote {case_json} and {case_md}", file=sys.stderr)
         summaries.append({
             "case": i + 1,

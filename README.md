@@ -25,7 +25,7 @@ Ablate Critic: [Retriever] → [Synthesizer] → [no-op] → output (quality: 0.
 
 - **Drop-in Integration** — Replace `from langgraph.graph import StateGraph` with `from counterfact import StateGraph`. Everything works the same, plus you get diagnostics.
 - **Real Counterfactual Analysis** — Actually re-runs your pipeline with agents ablated. No LLM simulation, no guessing.
-- **Graded Degradation** — When full ablation is too blunt (e.g. a retriever, whose removal just collapses the pipeline), progressively *degrade* a module's output and read the dose-response: is it a quality driver, merely structural, harmful, or robust? See [`diagnose_sensitivity`](#sensitivity-analysis-graded-degradation).
+- **Smart removal (ablate or degrade)** — When full ablation is too blunt (e.g. a retriever, whose removal just collapses the pipeline), `diagnose` automatically *severely degrades* that module instead — destroying its output content while preserving its shape — so its attribution reflects quality, not mere necessity. See [Removal strategy](#removal-strategy-ablate-or-degrade).
 - **Ground-Truth-Free Evals** — Structural and consistency checks that don't require labeled data: empty outputs, schema violations, latency anomalies, inter-agent coherence, and more.
 - **Shapley Attribution** — Shapley value and leave-one-out analysis to identify *which agent* caused a pipeline failure.
 - **Failure Classification** — Automatic categorization: local failure, systemic failure, architectural gap, feedback amplification.
@@ -158,30 +158,27 @@ questions — finding the one agent (of four plausible suspects) that actually c
 failure, fixing it (0/5 → 5/5 exact answers), and showing where an LLM reading the traces
 gets it wrong. Fully reproducible: `PYTHONPATH=examples python -m financebench_casestudy.run_casestudy`.
 
-## Sensitivity analysis (graded degradation)
+## Removal strategy (ablate or degrade)
 
-Pure ablation answers "is this module load-bearing?" For a retriever, parser, or
-reranker that question is uninformative — remove it and the pipeline structurally
-collapses, telling you nothing about whether the module's *quality* is what hurts
-answers. `diagnose_sensitivity` instead degrades each module's output across a range
-of magnitudes (where `1.0` is full ablation, the endpoint of the spectrum) and
-classifies the dose-response:
+To attribute a failure, `diagnose` "removes" each node from coalitions and measures the quality
+change. Pure ablation (a no-op) answers "is this module load-bearing?" For a retriever, parser,
+or reranker that is uninformative — remove it and the pipeline structurally collapses, so the
+module trivially dominates attribution without telling you whether its *quality* is what hurts
+answers.
+
+So `diagnose` chooses the removal **per node, automatically**: most agents are ablated, but a
+structural module (retriever / reranker / parser) is instead **severely degraded** — it still
+runs and its output keeps its shape (a retriever still returns a non-empty doc list), but the
+content is destroyed. Its Shapley value then reflects quality, not mere necessity. No extra
+method or configuration:
 
 ```python
-report = pipeline.diagnose_sensitivity(
-    input_state={"query": "..."},
-    quality_fn=my_quality_fn,            # or a classifier registry
-    magnitudes=(0.25, 0.5, 0.75, 1.0),
-)
-for node in report.ranked():
-    print(node.node, node.classification)   # quality_driver | structural | harmful | robust
+report = pipeline.diagnose(input_state={"query": "..."}, quality_fn=my_quality_fn)
+report.simulation_results_summary["removal_strategies"]
+# -> {"retriever": "degrade", "reranker": "degrade", "synthesizer": "ablate"}
 ```
 
-Degraders are auto-selected by inferred module type (drop ranked docs for a
-retriever, decay order for a reranker, drop sentences for a generator) and can be
-overridden per node. The result tells a retriever that is *structural* (needed, but
-quality-insensitive) apart from one that is a *quality driver* — a distinction a
-single on/off ablation cannot make. The skill reaches for this automatically; see
+The choice is made by inferred module type (name + output shape). See
 `skills/counterfact-debugger/reference/ablation-vs-degradation.md`.
 
 ## Integrations
@@ -238,7 +235,7 @@ reports = graph.diagnose_dataset([c["input"] for c in cases], quality_fn=quality
 **Worked case studies** (all offline-reproducible, no API keys):
 
 - [`examples/openai_agents_casestudy/`](examples/openai_agents_casestudy/CASE_STUDY.md) — OpenAI Agents SDK **orchestrator-with-handoffs** support system scored by a Braintrust-style scorer. counterfact isolates a downstream agent that silently strips the answer (exonerating the obvious suspect) and fixes it 0/5 → 5/5.
-- [`examples/rag_degradation_casestudy/`](examples/rag_degradation_casestudy/CASE_STUDY.md) — a **RAG retriever → reranker → synthesizer** pipeline where pure ablation calls the reranker irrelevant, but graded degradation shows it is the quality driver and the retriever is merely structural.
+- [`examples/rag_degradation_casestudy/`](examples/rag_degradation_casestudy/CASE_STUDY.md) — a **RAG retriever → reranker → synthesizer** pipeline where pure ablation structurally fails 30/105 coalition runs (and calls the reranker irrelevant), while `diagnose`'s automatic severe-degradation keeps every run live and measures all three modules' contributions.
 - [`examples/agents_as_tools_casestudy/`](examples/agents_as_tools_casestudy/CASE_STUDY.md) — OpenAI Agents SDK **agents-as-tools**, attributing a wrong answer to the specific sub-agent tool that caused it.
 
 ## Development

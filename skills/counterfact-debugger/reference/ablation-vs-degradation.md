@@ -1,92 +1,59 @@
-# Ablation vs graded degradation
+# Ablation vs severe degradation
 
-## The problem with pure ablation
+`diagnose` attributes a failure by **removing** each node from coalitions and measuring how
+quality moves (Shapley/LOO). How a node is "removed" is chosen automatically per node — you do
+not configure it.
 
-Ablation replaces a node with a no-op and re-runs the pipeline. That answers one question:
-*is this node load-bearing?* For many modules that is exactly the wrong question.
+## The problem with ablating everything
+
+Ablation replaces a node with a no-op. For most agents that answers the right question: *is
+this node load-bearing?* For some modules it does not.
 
 Ablate a **retriever** and the synthesizer gets no context at all, so the whole pipeline
-structurally collapses. The retriever's Shapley value is huge and positive, but all it tells
-you is "the pipeline needs a retriever" — not whether *retrieval quality* is what is dragging
-your answers down. The same applies to parsers, query rewriters, routers, and context builders:
-removing them breaks the run rather than revealing a quality effect.
+collapses to a degenerate state. The retriever's Shapley value is huge and positive, but all it
+tells you is "the pipeline needs a retriever" — not whether *retrieval quality* is what is
+dragging answers down. Parsers, rerankers, and context builders have the same failure mode:
+removing them breaks the run rather than revealing a quality effect, so they trivially dominate
+attribution and drown out the node that actually matters.
 
-## Degradation generalizes ablation
+## What diagnose does instead
 
-A degrader takes a node's output and a **magnitude** in `[0, 1]` and returns a progressively
-worse version. `magnitude=0` is unchanged; `magnitude=1.0` is true ablation (the node
-contributes nothing). So ablation is just the endpoint of a spectrum. By sweeping several
-magnitudes and re-running the real pipeline at each, you get a **dose-response curve** for every
-node, which is far more informative than a single on/off ablation.
+For those modules, `diagnose` applies **one severe, structure-preserving degradation** as the
+"removal":
 
-Run it with the skill runner:
-```bash
-python scripts/cf_diagnose.py --factory ... --inputs ... --sensitivity \
-  --magnitudes 0.25,0.5,0.75,1.0 --out sensitivity.json
-```
-or directly in code:
-```python
-report = graph.diagnose_sensitivity(input_state, quality_fn=my_quality_fn,
-                                     magnitudes=(0.25, 0.5, 0.75, 1.0), seed=42)
-```
+- the node still runs, so the pipeline stays runnable;
+- its output keeps its **shape** — a retriever still returns a non-empty doc list, a parser
+  still returns its keys;
+- the **content** is destroyed (docs replaced with low-relevance placeholders, parsed values
+  blanked).
 
-## The four classifications
+This simulates the module contributing nothing useful *without* the structural collapse, so its
+Shapley value reflects the quality it contributes, comparable to the other agents.
 
-Each node is labeled from the shape of its curve:
+## How the strategy is chosen
 
-| class | curve shape | meaning | what to do |
-|---|---|---|---|
-| **quality_driver** | quality falls smoothly as the node degrades | the node's *output quality* drives the answer | invest here (better retrieval/ranking/prompt) |
-| **structural** | flat under partial degradation, collapses only at full removal (or errors) | the node is required to run, but ablation is the blunt, uninformative signal | look elsewhere for quality wins |
-| **harmful** | quality *rises* as the node degrades/removed | the node is actively hurting the answer | fix its instruction or remove it |
-| **robust** | quality barely moves even at full degradation | low impact on this metric | ignore for this failure |
+Per node, by inferred **module type** (from its name and the shape of its output, captured in a
+single pipeline run):
 
-The key discrimination: a retriever that comes back **structural** means "needed, but partial
-quality loss does not hurt — your problem is elsewhere," whereas **quality_driver** means
-"retrieval quality is exactly what is limiting answers." Pure ablation cannot tell these apart;
-both look like a big positive Shapley.
+| inferred type | removal |
+|---|---|
+| retriever (name hints `retriev/search/fetch/lookup/context/doc/chunk`, or list output) | **degrade** |
+| reranker (`rerank/rank/order/sort/score`, list output) | **degrade** |
+| parser (`pars/extract/structur/classif/route/triage`, dict output) | **degrade** |
+| generator (everything else, e.g. a synthesizer/writer) | **ablate** |
 
-## The degrader library
+No magnitude sweep and no separate method — there is exactly one severe level, and `diagnose`
+is the only entry point. The choice is reported: read
+`report.simulation_results_summary["removal_strategies"]` (a `{node: "ablate"|"degrade"}` map),
+and `cf_diagnose.py` prints which modules were degraded.
 
-Built-in degraders are auto-selected by an inferred module type (name + output shape):
+## Reading the result
 
-- **retriever** (list output) → `drop_items` — keep only a `(1-magnitude)` prefix of ranked docs.
-- **reranker** (list, name hints `rank`/`rerank`/`order`) → `shuffle_relevance` — push good items toward the back.
-- **parser** (dict output) → `drop_fields` — drop a fraction of extracted fields.
-- **generator** (string output) → `drop_sentences` — drop a fraction of sentences.
+A structural module that comes back with a **large** Shapley under degradation is genuinely a
+quality lever (its content quality changes the answer). One that comes back **near zero** is
+load-bearing but quality-insensitive on these cases — pure ablation could not have told you the
+difference, because it would have collapsed the pipeline either way.
 
-Others available to import from `counterfact.sensitivity`: `inject_distractors` (replace a
-fraction of retrieved items with off-topic filler — quality loss without quantity loss) and
-`truncate_text`.
-
-## Custom degraders
-
-When the built-ins do not model your failure (e.g. you want *hard* distractors specific to your
-domain, or to degrade a particular state key), supply your own. A degrader is
-`(value, magnitude, rng) -> value`:
-
-```python
-# my_degraders.py
-from counterfact.sensitivity import inject_distractors
-
-def build():
-    return {
-        "retriever": inject_distractors("A plausible but wrong passage about a different company."),
-    }
-```
-```bash
-python scripts/cf_diagnose.py --factory ... --inputs ... --sensitivity \
-  --degraders my_degraders:build
-```
-Use `target_keys={node: "state_key"}` (in code) to force which output key is degraded; by
-default the node's largest changed output is used.
-
-## When to reach for which
-
-- Default to **ablation** (`diagnose`) for agent chains where each step writes prose and you
-  want Shapley/coalition attribution and a failure classification.
-- Reach for **degradation** (`--sensitivity`) whenever a suspect is a retriever, reranker,
-  parser, router, or context builder — anything whose full removal would just break the run.
-- If an ablation run prints the `HINT:` that the top agent's removal looks structural, that is
-  the signal to re-run with `--sensitivity`. Degradation subsumes ablation, so when in doubt it
-  is the safer lens.
+If your pipeline names a structural module unconventionally (so it is inferred as a generator
+and ablated), rename it to include a hint above, or treat a suspiciously dominant ablation
+result on that node as a sign to look closer.

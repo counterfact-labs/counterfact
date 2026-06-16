@@ -98,28 +98,16 @@ python scripts/cf_diagnose.py \
 This writes `report.json` (machine-readable) and `report.md` (human-readable). Read both.
 Bump `--num-simulations` (50–100) if attribution comes back inconclusive.
 
-### 4b. Ablation vs graded degradation — pick the right perturbation
-Plain ablation (the default above) replaces a node with a no-op. For some modules that is the
-wrong question. Ablate a **retriever** and the pipeline gets no context at all and structurally
-collapses; the huge Shapley just says "this is necessary," not whether *retrieval quality* is
-what's hurting answers. The same is true of parsers, routers, and context builders.
-
-For those, run **graded degradation** instead, which progressively worsens a node's output
-(`magnitude=1.0` is ablation, the endpoint of the spectrum) and classifies each node:
-```bash
-python scripts/cf_diagnose.py --factory ... --inputs ... --sensitivity \
-  --magnitudes 0.25,0.5,0.75,1.0 --out sensitivity.json
-```
-Each node is labeled **quality_driver** (improving it should help), **structural** (needed to
-run, but quality is insensitive to partial degradation — ablation is the blunt signal),
-**harmful** (degrading/removing it *improves* quality), or **robust** (low impact). Built-in
-degraders are auto-selected per module type; override per node with `--degraders module:function`
-returning `{node: Degrader}` (see `reference/ablation-vs-degradation.md`).
-
-**You do not have to choose up front.** If a plain ablation run prints a `HINT:` that the top
-agent's removal looks structural (large positive Shapley on a failing pipeline), re-run with
-`--sensitivity`. Reach for degradation by default whenever a suspect is a retriever/parser/
-context builder; it subsumes ablation and tells structural from quality-driving.
+> **Ablate vs degrade is automatic — you don't choose.** When attribution removes a node,
+> most agents are ablated (replaced by a no-op), but a **structural module** (retriever,
+> reranker, parser, context builder) would just collapse the pipeline if fully ablated — the
+> huge Shapley would say "this is necessary," not whether its *output quality* is what hurts
+> answers. So `diagnose` instead **severely degrades** those modules: the node still runs and
+> its output keeps its shape (a retriever still returns a non-empty doc list), but the content
+> is destroyed. Their Shapley then reflects quality, not mere necessity. The choice is made by
+> inferred module type; `report.simulation_results_summary["removal_strategies"]` shows which
+> nodes were `ablate`d vs `degrade`d (the runner also prints this). See
+> `reference/ablation-vs-degradation.md`.
 
 ### 5. Interpret — do not over-read the numbers
 Read `reference/failure-taxonomy.md` and `reference/reading-attribution.md`, then:
@@ -145,12 +133,12 @@ deltas. If the culprit's score didn't move, the fix was wrong — say so and ite
 - `reference/failure-taxonomy.md` — what each `failure_type` means and the fix it implies.
 - `reference/reading-attribution.md` — Shapley values, bootstrap CIs, dominant≠culprit, the
   inconclusive case.
-- `reference/ablation-vs-degradation.md` — when pure ablation misleads (retrievers, parsers),
-  the degrader library, magnitude sweeps, and how to read the four node classifications.
+- `reference/ablation-vs-degradation.md` — why structural modules (retrievers, parsers) are
+  severely degraded instead of ablated, and how the strategy is chosen.
 - `reference/report-schema.md` — `DiagnosticReport` fields, classifier signature, examples.
 
 ## Scripts
-- `scripts/cf_diagnose.py` — load factory + inputs, wire `llm_fn`, run `diagnose` (ablation) or
-  `--sensitivity` (graded degradation), emit reports.
+- `scripts/cf_diagnose.py` — load factory + inputs, wire `llm_fn`, run `diagnose` (which
+  auto-ablates or severely-degrades each node by type), emit reports.
 - `scripts/llm_fn.py` — default Anthropic/Google LLM caller from env (importable + standalone).
 - `scripts/verify.py` — compare two diagnose reports to confirm a fix moved the attribution.

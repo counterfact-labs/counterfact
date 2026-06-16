@@ -68,12 +68,20 @@ def reranker(state: dict) -> dict:
 
 
 def synthesizer(state: dict) -> dict:
-    """Answer from the top-K passages only (context budget)."""
-    context = state.get("docs", [])[:TOP_K]
-    for passage in context:
-        # The gold figure is the dollar amount in the relevant passage.
-        if "$" in passage:
-            return {**state, "final_output": f"Based on the filing: {passage}"}
+    """Answer from the top-K passages only (context budget).
+
+    Like a real synthesizer it builds its answer from the retrieved passages, so
+    with *no* context there is nothing to answer from. Reading the top passage
+    makes that dependency explicit: if the retriever is fully ablated (no docs),
+    this raises and the pipeline structurally fails — which is exactly why
+    ``diagnose`` severely degrades the retriever instead of ablating it.
+    """
+    docs = state.get("docs", [])
+    top = docs[0]  # IndexError if retrieval produced nothing (pure ablation)
+    context = docs[:TOP_K]
+    figure = next((p for p in context if "$" in p), None)
+    if figure:
+        return {**state, "final_output": f"Top passage '{top[:24]}...'; answer: {figure}"}
     return {**state, "final_output": "I could not find the figure in the retrieved context."}
 
 

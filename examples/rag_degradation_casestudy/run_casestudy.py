@@ -1,15 +1,16 @@
-"""Contrast pure ablation with graded degradation on the RAG pipeline.
+"""Show why diagnose severely degrades a retriever instead of ablating it.
 
-The pipeline passes its eval, so this is a *fragility* question: which module's
-quality actually controls the answer? We run both lenses on the same cases:
+The pipeline answers from the top-K retrieved passages, so removing the retriever
+entirely (a no-op) leaves the synthesizer with no context and the run structurally
+fails. We diagnose the same cases two ways and compare:
 
-  1. Ablation (``diagnose``) — Shapley from replacing each node with a no-op.
-  2. Degradation (``diagnose_sensitivity``) — the dose-response classification.
+  1. Forced pure ablation — every node removed by a no-op (the old behavior).
+  2. Auto (default) — diagnose decides per node; structural modules (retriever,
+     reranker) are severely degraded instead of ablated.
 
-and print them side by side. The point: ablation calls the reranker irrelevant
-(removing it is a harmless pass-through), while degradation shows it is a quality
-driver (decaying its ranking pushes the relevant passage out of the synthesizer's
-top-k and answers fail).
+The point: pure ablation turns the retriever's coalitions into pipeline errors
+(structural failures), so its attribution only says "necessary." Auto-degradation
+keeps every run live, so the retriever gets a clean, comparable contribution.
 
 Run: PYTHONPATH=examples python -m rag_degradation_casestudy.run_casestudy
 """
@@ -18,7 +19,6 @@ from __future__ import annotations
 
 import json
 import os
-from collections import Counter
 
 from counterfact.classifiers import ClassifierRegistry
 
@@ -28,7 +28,6 @@ HERE = os.path.dirname(__file__)
 REPORTS = os.path.normpath(os.path.join(HERE, "..", "..", "reports"))
 SIMS = 24
 SEED = 42
-MAGNITUDES = (0.25, 0.5, 0.75, 1.0)
 
 
 def _load_cases():
@@ -42,84 +41,68 @@ def _quality_fn(output_text, state):
     return 1.0 if state.get("_gold", "\0") in (output_text or "") else 0.0
 
 
-def _ablation_shapley(cases):
-    """Average per-node Shapley from pure ablation across the cases."""
-    agg, counts = {}, {}
+def _diagnose(case, force_ablation):
+    graph = build()
+    if force_ablation:
+        # Pin every node to plain ablation (the pre-degradation behavior).
+        graph._removals = {n: "ablate" for n in graph.get_node_names()}
+    return graph.diagnose(
+        input_state={"query": case["query"], "_gold": case["gold"]},
+        num_simulations=SIMS,
+        quality_fn=_quality_fn,
+        registry=ClassifierRegistry(),
+        run_evals=False,
+        quality_gate=1.01,  # the pipeline passes; force attribution anyway
+        seed=SEED,
+    )
+
+
+def _aggregate(cases, force_ablation):
+    """Average Shapley per node + count coalition runs that structurally failed."""
+    agg, counts, errors, total = {}, {}, 0, 0
+    strategies = {}
     for case in cases:
-        state = {"query": case["query"], "_gold": case["gold"]}
-        report = build().diagnose(
-            input_state=state,
-            num_simulations=SIMS,
-            quality_fn=_quality_fn,
-            registry=ClassifierRegistry(),
-            run_evals=False,
-            quality_gate=1.01,  # the pipeline passes; force attribution anyway
-            seed=SEED,
-        )
+        report = _diagnose(case, force_ablation)
+        strategies = report.simulation_results_summary.get("removal_strategies", {})
         for node, val in (report.shapley_values or {}).items():
             agg[node] = agg.get(node, 0.0) + val
             counts[node] = counts.get(node, 0) + 1
-    return {n: agg[n] / counts[n] for n in agg}
-
-
-def _degradation(cases):
-    """Average per-node sensitivity + majority classification across the cases."""
-    sens, partial, classes, curves = {}, {}, {}, {}
-    for case in cases:
-        state = {"query": case["query"], "_gold": case["gold"]}
-        report = build().diagnose_sensitivity(
-            state,
-            quality_fn=_quality_fn,
-            registry=ClassifierRegistry(),
-            magnitudes=MAGNITUDES,
-            seed=SEED,
-        )
-        for n in report.nodes:
-            sens.setdefault(n.node, []).append(n.sensitivity)
-            partial.setdefault(n.node, []).append(n.partial_sensitivity)
-            classes.setdefault(n.node, []).append(n.classification)
-            curves.setdefault(n.node, []).append([q for _, q in n.curve])
-    out = {}
-    for node in sens:
-        mean_curve = [round(sum(col) / len(col), 3) for col in zip(*curves[node])]
-        out[node] = {
-            "sensitivity": round(sum(sens[node]) / len(sens[node]), 3),
-            "partial_sensitivity": round(sum(partial[node]) / len(partial[node]), 3),
-            "classification": Counter(classes[node]).most_common(1)[0][0],
-            "mean_curve": mean_curve,
-        }
-    return out
+        for sim in report.simulation_results:
+            total += 1
+            if "PIPELINE ERROR" in (sim.perturbed_output or ""):
+                errors += 1
+    shapley = {n: round(agg[n] / counts[n], 3) for n in agg}
+    return shapley, errors, total, strategies
 
 
 def run():
     cases = _load_cases()
     print(f"RAG pipeline (retriever -> reranker -> synthesizer), synthesizer reads top-{TOP_K}.")
-    print(f"{len(cases)} cases. Baseline passes; asking which module's quality drives the answer.\n")
+    print(f"{len(cases)} cases.\n")
 
-    ablation = _ablation_shapley(cases)
-    degradation = _degradation(cases)
+    abl_shapley, abl_errors, abl_total, _ = _aggregate(cases, force_ablation=True)
+    auto_shapley, auto_errors, auto_total, strategies = _aggregate(cases, force_ablation=False)
 
-    nodes = ["retriever", "reranker", "synthesizer"]
-    header = f"{'node':14} {'ablation Shapley':>17} {'degradation class':>20} {'max quality drop':>17}"
-    print(header)
-    for n in nodes:
-        ab = ablation.get(n, 0.0)
-        dg = degradation.get(n, {})
-        drop = max(dg.get("sensitivity", 0.0), dg.get("partial_sensitivity", 0.0))
-        print(f"{n:14} {ab:>+17.3f} {dg.get('classification',''):>20} {drop:>17.3f}")
+    print(f"{'node':14} {'pure-ablation Shapley':>22} {'auto Shapley':>14} {'auto strategy':>16}")
+    for n in ["retriever", "reranker", "synthesizer"]:
+        print(f"{n:14} {abl_shapley.get(n, 0.0):>+22.3f} {auto_shapley.get(n, 0.0):>+14.3f} "
+              f"{strategies.get(n, ''):>16}")
+    print(f"\nStructural failures (pipeline errors) across coalition runs:")
+    print(f"  pure ablation: {abl_errors}/{abl_total}")
+    print(f"  auto (degrade structural modules): {auto_errors}/{auto_total}")
 
     report = {
         "system": "RAG retriever -> reranker -> synthesizer (offline, deterministic)",
         "top_k": TOP_K,
         "n_cases": len(cases),
-        "magnitudes": list(MAGNITUDES),
-        "ablation_shapley": {n: round(ablation.get(n, 0.0), 4) for n in nodes},
-        "degradation": {n: degradation.get(n, {}) for n in nodes},
+        "removal_strategies": strategies,
+        "pure_ablation": {"shapley": abl_shapley, "structural_failures": abl_errors, "runs": abl_total},
+        "auto_degrade": {"shapley": auto_shapley, "structural_failures": auto_errors, "runs": auto_total},
         "lesson": (
-            "Ablation calls the reranker irrelevant (removing it is a harmless pass-through, "
-            "Shapley ~0), but graded degradation classifies it a quality_driver: decaying its "
-            "ranking pushes the relevant passage out of the synthesizer's top-k and answers "
-            "fail. The retriever is structural (only full removal hurts)."
+            "Removing the retriever entirely (pure ablation) leaves the synthesizer with no "
+            "context and the run structurally fails, so the retriever's attribution only says "
+            "'necessary'. diagnose instead severely degrades the retriever (and reranker): the "
+            "run stays live and their contribution is measured as a real quality effect."
         ),
     }
     os.makedirs(REPORTS, exist_ok=True)

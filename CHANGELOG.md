@@ -9,21 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Graded degradation / sensitivity analysis** (`counterfact.sensitivity`,
-  `CounterfactualGraph.diagnose_sensitivity`) — progressively degrade each module's
-  output across magnitudes (1.0 = full ablation) and classify the dose-response as
-  `quality_driver` / `structural` / `harmful` / `robust`. This generalizes ablation
-  (the magnitude-1.0 endpoint) and is the right lens for retrievers, rerankers, and
-  parsers, where pure ablation only reveals a structural collapse. Ships a degrader
-  library (`drop_items`, `shuffle_relevance`, `inject_distractors`, `truncate_text`,
-  `drop_sentences`, `drop_fields`) auto-selected by inferred module type, with a
-  per-node override hook.
-- **Skill support for degradation** — the `counterfact-debugger` skill gains a
-  `--sensitivity` mode, auto-detects when an ablation result looks structural and
-  nudges toward degradation, and ships a `reference/ablation-vs-degradation.md` guide.
+- **Smart removal strategy in `diagnose` (ablate or severely degrade)** — when
+  attribution removes a node, structural modules (retrievers, rerankers, parsers)
+  are now **severely degraded** rather than ablated: the node still runs and keeps
+  its output shape, but its content is destroyed. This avoids the structural
+  collapse a no-op causes for such modules, so their Shapley reflects quality
+  rather than mere necessity. The choice is automatic, by inferred module type
+  (`counterfact.degradation`), with no new method or configuration; the per-node
+  strategy is reported under `simulation_results_summary["removal_strategies"]`.
+  The `counterfact-debugger` skill applies this automatically (see
+  `reference/ablation-vs-degradation.md`).
 - **Two more worked case studies** — `examples/rag_degradation_casestudy/` (retriever
-  pipeline where degradation, not ablation, finds the quality lever) and
-  `examples/agents_as_tools_casestudy/` (OpenAI Agents SDK agents-as-tools).
+  pipeline where pure ablation structurally fails but auto-degradation keeps runs
+  live) and `examples/agents_as_tools_casestudy/` (OpenAI Agents SDK agents-as-tools).
 
 - **OpenAI Agents SDK adapter** (`counterfact.integrations.openai_agents`) — wrap
   a sequential, orchestrator-with-handoffs, or agents-as-tools system so each

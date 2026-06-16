@@ -117,6 +117,10 @@ class CounterfactualGraph:
         self._tracing_ctx = tracing_ctx
         self._recipe = recipe
         self._last_result: Optional[dict] = None
+        # Per-node removal strategy used during attribution: {node: "ablate"|"degrade"}.
+        # Set by the diagnostic (see counterfact.degradation.decide_removals);
+        # None means "ablate everything" (backward-compatible default).
+        self._removals: Optional[dict] = None
 
     # ─── Standard LangGraph compiled-graph methods ───────────────────
     # These are identical to LangGraph's API. We just add trace capture.
@@ -241,6 +245,17 @@ class CounterfactualGraph:
         if agent_name not in self._recipe.nodes:
             raise ValueError(f"Agent '{agent_name}' not found. Available: {list(self._recipe.nodes.keys())}")
 
+        # Removal strategy: most nodes are ablated (no-op), but a structural module
+        # (retriever/parser/reranker) is instead SEVERELY DEGRADED — it still runs
+        # and keeps its output shape, but its content is destroyed. That avoids the
+        # structural collapse a no-op would cause and keeps attribution meaningful.
+        # Defaults to plain ablation when no strategy was decided.
+        strategy = (self._removals or {}).get(agent_name, "ablate")
+        if strategy == "degrade":
+            from counterfact.degradation import severe_degraded_node
+
+            return self._clone_with_replacement(agent_name, severe_degraded_node(self._recipe.nodes[agent_name]))
+
         def _noop(state: dict) -> dict:
             """Ablated node — passes state through unchanged."""
             return state
@@ -310,7 +325,9 @@ class CounterfactualGraph:
             node_io=dict(recipe.node_io),
         )
 
-        return CounterfactualGraph(compiled, ctx, new_recipe)
+        clone = CounterfactualGraph(compiled, ctx, new_recipe)
+        clone._removals = self._removals  # carry removal strategy across coalition clones
+        return clone
 
     # ─── Neutral spec import/export (for external orchestrators) ─────
 
@@ -709,65 +726,6 @@ class CounterfactualGraph:
             run_evals=run_evals,
             seed=seed,
             quality_fn=quality_fn,
-        )
-
-    # ─── Sensitivity (graded degradation, not just ablation) ─────────
-
-    def diagnose_sensitivity(
-        self,
-        input_state: dict,
-        *,
-        degraders: Optional[dict] = None,
-        target_keys: Optional[dict] = None,
-        magnitudes: tuple = (0.25, 0.5, 1.0),
-        nodes: Optional[list] = None,
-        quality_fn: Optional[Callable[[str, dict], float]] = None,
-        registry: Any = None,
-        llm_fn: Optional[Callable] = None,
-        domain: str = "rag",
-        sources: str = "",
-        seed: Optional[int] = None,
-        structural_eps: float = 0.05,
-        progress_callback: Optional[Callable] = None,
-    ):
-        """Run graded-degradation sensitivity analysis on this pipeline.
-
-        Unlike :meth:`diagnose` (which ablates each agent — replaces it with a
-        no-op), this progressively *degrades* each node's output across a range
-        of magnitudes (with ``1.0`` being ablation-equivalent) and classifies the
-        dose-response: ``quality_driver`` / ``structural`` / ``harmful`` /
-        ``robust``. This is the right lens for modules like retrievers or parsers,
-        where full ablation only causes a structural collapse and tells you
-        little about whether the module's *quality* drives the answer.
-
-        Args mirror :func:`counterfact.sensitivity.run_degradation_analysis`;
-        see it for details. Returns a ``SensitivityReport``.
-
-        Raises:
-            ValueError: If no build recipe is available (can't clone/re-run).
-        """
-        if self._recipe is None:
-            raise ValueError(
-                "Cannot run sensitivity analysis: no build recipe available. "
-                "Use counterfact.StateGraph (not raw LangGraph) to enable it."
-            )
-        from counterfact.sensitivity import run_degradation_analysis
-
-        return run_degradation_analysis(
-            self,
-            input_state,
-            degraders=degraders,
-            target_keys=target_keys,
-            magnitudes=magnitudes,
-            nodes=nodes,
-            quality_fn=quality_fn,
-            registry=registry,
-            llm_fn=llm_fn,
-            domain=domain,
-            sources=sources,
-            seed=seed,
-            structural_eps=structural_eps,
-            progress_callback=progress_callback,
         )
 
     # ─── Pass-through for any other compiled-graph attributes ────────
