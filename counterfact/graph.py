@@ -117,6 +117,10 @@ class CounterfactualGraph:
         self._tracing_ctx = tracing_ctx
         self._recipe = recipe
         self._last_result: Optional[dict] = None
+        # Per-node removal strategy used during attribution: {node: "ablate"|"degrade"}.
+        # Set by the diagnostic (see counterfact.degradation.decide_removals);
+        # None means "ablate everything" (backward-compatible default).
+        self._removals: Optional[dict] = None
 
     # ─── Standard LangGraph compiled-graph methods ───────────────────
     # These are identical to LangGraph's API. We just add trace capture.
@@ -241,6 +245,17 @@ class CounterfactualGraph:
         if agent_name not in self._recipe.nodes:
             raise ValueError(f"Agent '{agent_name}' not found. Available: {list(self._recipe.nodes.keys())}")
 
+        # Removal strategy: most nodes are ablated (no-op), but a structural module
+        # (retriever/parser/reranker) is instead SEVERELY DEGRADED — it still runs
+        # and keeps its output shape, but its content is destroyed. That avoids the
+        # structural collapse a no-op would cause and keeps attribution meaningful.
+        # Defaults to plain ablation when no strategy was decided.
+        strategy = (self._removals or {}).get(agent_name, "ablate")
+        if strategy == "degrade":
+            from counterfact.degradation import severe_degraded_node
+
+            return self._clone_with_replacement(agent_name, severe_degraded_node(self._recipe.nodes[agent_name]))
+
         def _noop(state: dict) -> dict:
             """Ablated node — passes state through unchanged."""
             return state
@@ -310,7 +325,9 @@ class CounterfactualGraph:
             node_io=dict(recipe.node_io),
         )
 
-        return CounterfactualGraph(compiled, ctx, new_recipe)
+        clone = CounterfactualGraph(compiled, ctx, new_recipe)
+        clone._removals = self._removals  # carry removal strategy across coalition clones
+        return clone
 
     # ─── Neutral spec import/export (for external orchestrators) ─────
 

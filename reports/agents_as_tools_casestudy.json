@@ -1,0 +1,16 @@
+{
+  "system": "openai-agents-sdk agents-as-tools (offline, deterministic)",
+  "pattern": "assistant -> fact_lookup(tool) -> unit_converter(tool) -> composer",
+  "query": "How tall is the tower in meters?",
+  "gold": "330 meters",
+  "baseline_answer": "The tower is approximately 542 meters tall.",
+  "baseline_quality": 0.0,
+  "shapley_values": {
+    "assistant": 0.0,
+    "fact_lookup": 0.5,
+    "unit_converter": -0.25,
+    "composer": -0.25
+  },
+  "culprit": "unit_converter",
+  "fixed_answer": "The tower is approximately 330 meters tall."
+}

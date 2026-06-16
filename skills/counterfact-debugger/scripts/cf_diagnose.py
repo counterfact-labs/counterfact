@@ -250,6 +250,14 @@ def main() -> None:
               f"| baseline quality {report.baseline_quality:.3f} "
               f"| top agent: {top[0]} ({top[1]:+.3f}) "
               f"| method: {report.attribution_method}", file=sys.stderr)
+
+        # Transparency: which modules were severely degraded rather than ablated
+        # (structural modules like retrievers/parsers — chosen automatically so
+        # their removal does not collapse the pipeline and skew attribution).
+        degraded = [n for n, s in (report.simulation_results_summary.get("removal_strategies") or {}).items()
+                    if s == "degrade"]
+        if degraded:
+            print(f"  note: severely degraded (not ablated) as structural modules: {degraded}", file=sys.stderr)
         print(f"  -> wrote {case_json} and {case_md}", file=sys.stderr)
         summaries.append({
             "case": i + 1,

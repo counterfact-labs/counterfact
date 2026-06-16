@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Smart removal strategy in `diagnose` (ablate or severely degrade)** — when
+  attribution removes a node, structural modules (retrievers, rerankers, parsers)
+  are now **severely degraded** rather than ablated: the node still runs and keeps
+  its output shape, but its content is destroyed. This avoids the structural
+  collapse a no-op causes for such modules, so their Shapley reflects quality
+  rather than mere necessity. The choice is automatic, by inferred module type
+  (`counterfact.degradation`), with no new method or configuration; the per-node
+  strategy is reported under `simulation_results_summary["removal_strategies"]`.
+  The `counterfact-debugger` skill applies this automatically (see
+  `reference/ablation-vs-degradation.md`).
+- **Two more worked case studies** — `examples/rag_degradation_casestudy/` (retriever
+  pipeline where pure ablation structurally fails but auto-degradation keeps runs
+  live) and `examples/agents_as_tools_casestudy/` (OpenAI Agents SDK agents-as-tools).
+
+- **OpenAI Agents SDK adapter** (`counterfact.integrations.openai_agents`) — wrap
+  a sequential, orchestrator-with-handoffs, or agents-as-tools system so each
+  agent becomes an ablatable counterfact node. The runner is injected (defaults
+  to `agents.Runner.run_sync`), so systems can be diagnosed offline with a fake
+  runner. Install with `counterfact[openai-agents]`.
+- **Braintrust adapter** (`counterfact.integrations.braintrust`) — adapt a
+  Braintrust/`autoevals` scorer into counterfact's `quality_fn` to drive Shapley
+  attribution from the same metric your evals use, and convert Braintrust
+  datasets into counterfact cases (`cases_from_dataset`, `load_braintrust_dataset`).
+  Install with `counterfact[braintrust]`.
+- **Worked case study** (`examples/openai_agents_casestudy/`) — offline, deterministic
+  walk-through that debugs an OpenAI Agents SDK orchestrator-with-handoffs support
+  system scored by a Braintrust-style scorer (0/5 → 5/5).
+
+Both adapters are additive: the core API and existing LangGraph workflows are
+unchanged.
+
 ## [0.1.0] - 2026-05-07
 
 ### Added

@@ -25,6 +25,7 @@ Ablate Critic: [Retriever] → [Synthesizer] → [no-op] → output (quality: 0.
 
 - **Drop-in Integration** — Replace `from langgraph.graph import StateGraph` with `from counterfact import StateGraph`. Everything works the same, plus you get diagnostics.
 - **Real Counterfactual Analysis** — Actually re-runs your pipeline with agents ablated. No LLM simulation, no guessing.
+- **Smart removal (ablate or degrade)** — When full ablation is too blunt (e.g. a retriever, whose removal just collapses the pipeline), `diagnose` automatically *severely degrades* that module instead — destroying its output content while preserving its shape — so its attribution reflects quality, not mere necessity. See [Removal strategy](#removal-strategy-ablate-or-degrade).
 - **Ground-Truth-Free Evals** — Structural and consistency checks that don't require labeled data: empty outputs, schema violations, latency anomalies, inter-agent coherence, and more.
 - **Shapley Attribution** — Shapley value and leave-one-out analysis to identify *which agent* caused a pipeline failure.
 - **Failure Classification** — Automatic categorization: local failure, systemic failure, architectural gap, feedback amplification.
@@ -151,11 +152,91 @@ python skills/counterfact-debugger/scripts/cf_diagnose.py \
 Install it by copying `skills/counterfact-debugger/` into your agent's skills directory
 (e.g. `~/.claude/skills/`). See `SKILL.md` for the full workflow.
 
-**Worked case study:** [`examples/financebench_skill/CASE_STUDY.md`](examples/financebench_skill/CASE_STUDY.md)
+**Worked case study:** [`examples/financebench_casestudy/CASE_STUDY.md`](examples/financebench_casestudy/CASE_STUDY.md)
 walks the skill through diagnosing a real 8-agent financial-RAG pipeline on FinanceBench
 questions — finding the one agent (of four plausible suspects) that actually causes the
 failure, fixing it (0/5 → 5/5 exact answers), and showing where an LLM reading the traces
-gets it wrong. Fully reproducible: `PYTHONPATH=examples python -m financebench_skill.run_casestudy`.
+gets it wrong. Fully reproducible: `PYTHONPATH=examples python -m financebench_casestudy.run_casestudy`.
+
+## Removal strategy (ablate or degrade)
+
+To attribute a failure, `diagnose` "removes" each node from coalitions and measures the quality
+change. Pure ablation (a no-op) answers "is this module load-bearing?" For a retriever, parser,
+or reranker that is uninformative — remove it and the pipeline structurally collapses, so the
+module trivially dominates attribution without telling you whether its *quality* is what hurts
+answers.
+
+So `diagnose` chooses the removal **per node, automatically**: most agents are ablated, but a
+structural module (retriever / reranker / parser) is instead **severely degraded** — it still
+runs and its output keeps its shape (a retriever still returns a non-empty doc list), but the
+content is destroyed. Its Shapley value then reflects quality, not mere necessity. No extra
+method or configuration:
+
+```python
+report = pipeline.diagnose(input_state={"query": "..."}, quality_fn=my_quality_fn)
+report.simulation_results_summary["removal_strategies"]
+# -> {"retriever": "degrade", "reranker": "degrade", "synthesizer": "ablate"}
+```
+
+The choice is made by inferred module type (name + output shape). See
+`skills/counterfact-debugger/reference/ablation-vs-degradation.md`.
+
+## Integrations
+
+counterfact is framework-neutral. Beyond the drop-in LangGraph `StateGraph`, it
+ships optional adapters for other agent frameworks and eval platforms. These are
+**additive** — importing them never changes the core API, and existing LangGraph
+pipelines are unaffected.
+
+### OpenAI Agents SDK
+
+Wrap an [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) system
+(sequential, orchestrator + handoffs, or agents-as-tools) so each agent becomes an
+ablatable node. counterfact drives the agents as discrete steps — not the SDK's
+internal handoff loop — which is what makes "remove agent X and re-run" meaningful.
+
+```bash
+pip install counterfact[openai-agents]
+```
+
+```python
+from agents import Runner
+from counterfact.integrations.openai_agents import graph_from_orchestrator
+
+graph = graph_from_orchestrator(
+    triage_agent,                                  # the routing/handoff agent
+    {"billing": billing_agent, "tech": tech_agent},  # specialists it hands off to
+    finalizer=responder_agent,                     # composes the final reply
+)
+report = graph.diagnose(input_state={"input": ticket}, quality_fn=my_quality_fn)
+```
+
+### Braintrust
+
+Use a [Braintrust](https://www.braintrust.dev/) / `autoevals` scorer as the quality
+metric that drives Shapley attribution, and pull eval cases straight from a
+Braintrust dataset — so your attribution reflects the *same* scorer your evals use.
+
+```bash
+pip install counterfact[braintrust]
+```
+
+```python
+from autoevals import Factuality
+from counterfact.integrations.braintrust import (
+    quality_fn_from_scorer, cases_from_dataset, load_braintrust_dataset,
+)
+
+quality_fn = quality_fn_from_scorer(Factuality(), pass_input=True, input_key="input")
+cases = cases_from_dataset(load_braintrust_dataset("support", "refunds-eval"))
+reports = graph.diagnose_dataset([c["input"] for c in cases], quality_fn=quality_fn)
+```
+
+**Worked case studies** (all offline-reproducible, no API keys):
+
+- [`examples/openai_agents_casestudy/`](examples/openai_agents_casestudy/CASE_STUDY.md) — OpenAI Agents SDK **orchestrator-with-handoffs** support system scored by a Braintrust-style scorer. counterfact isolates a downstream agent that silently strips the answer (exonerating the obvious suspect) and fixes it 0/5 → 5/5.
+- [`examples/rag_degradation_casestudy/`](examples/rag_degradation_casestudy/CASE_STUDY.md) — a **RAG retriever → reranker → synthesizer** pipeline where pure ablation structurally fails 30/105 coalition runs (and calls the reranker irrelevant), while `diagnose`'s automatic severe-degradation keeps every run live and measures all three modules' contributions.
+- [`examples/agents_as_tools_casestudy/`](examples/agents_as_tools_casestudy/CASE_STUDY.md) — OpenAI Agents SDK **agents-as-tools**, attributing a wrong answer to the specific sub-agent tool that caused it.
 
 ## Development
 

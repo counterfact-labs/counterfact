@@ -1,0 +1,29 @@
+{
+  "system": "RAG retriever -> reranker -> synthesizer (offline, deterministic)",
+  "top_k": 2,
+  "n_cases": 5,
+  "removal_strategies": {
+    "retriever": "degrade",
+    "reranker": "degrade",
+    "synthesizer": "ablate"
+  },
+  "pure_ablation": {
+    "shapley": {
+      "retriever": 0.5,
+      "reranker": 0.0,
+      "synthesizer": 0.5
+    },
+    "structural_failures": 30,
+    "runs": 105
+  },
+  "auto_degrade": {
+    "shapley": {
+      "retriever": 0.333,
+      "reranker": 0.333,
+      "synthesizer": 0.333
+    },
+    "structural_failures": 0,
+    "runs": 105
+  },
+  "lesson": "Removing the retriever entirely (pure ablation) leaves the synthesizer with no context and the run structurally fails, so the retriever's attribution only says 'necessary'. diagnose instead severely degrades the retriever (and reranker): the run stays live and their contribution is measured as a real quality effect."
+}

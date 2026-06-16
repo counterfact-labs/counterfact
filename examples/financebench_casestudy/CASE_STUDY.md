@@ -98,12 +98,12 @@ pip install -e ".[anthropic]"
 export ANTHROPIC_API_KEY=...
 
 # Diagnosis + adaptive fix loop + live LLM-debugger baseline:
-PYTHONPATH=examples python -m financebench_skill.run_casestudy
-#   -> reports/financebench_skill_casestudy.{json,md}
+PYTHONPATH=examples python -m financebench_casestudy.run_casestudy
+#   -> reports/financebench_casestudy_casestudy.{json,md}
 
 # Why target selection matters (cheap, no ablation):
-PYTHONPATH=examples python -m financebench_skill.compare_fix_order
+PYTHONPATH=examples python -m financebench_casestudy.compare_fix_order
 #   -> reports/financebench_fix_order.json
 ```
 
-Source: `examples/financebench_skill/`. Claude Sonnet 4.6 (synthesizer) + Claude Haiku 4.5 (other agents). Results are as deterministic as the API allows (temperature 0.0, seeded coalition sampling); exact Shapley floats vary slightly run-to-run.
+Source: `examples/financebench_casestudy/`. Claude Sonnet 4.6 (synthesizer) + Claude Haiku 4.5 (other agents). Results are as deterministic as the API allows (temperature 0.0, seeded coalition sampling); exact Shapley floats vary slightly run-to-run.

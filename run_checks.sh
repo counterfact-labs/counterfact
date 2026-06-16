@@ -12,42 +12,41 @@ set -e
 #   pip install -e ".[all,dev]"
 # ──────────────────────────────────────────────────────────────────
 
-# Auto-detect venv with dev tools
+# Auto-detect a venv with the dev tools; fall back to whatever is on PATH.
 VENV_BIN=""
-for candidate in \
-    ".venv/bin" \
-    "../counterfactual-debugger/.venv/bin" \
-    "venv/bin"; do
+for candidate in ".venv/bin" "venv/bin"; do
     if [ -x "$candidate/ruff" ] && [ -x "$candidate/mypy" ] && [ -x "$candidate/pytest" ]; then
         VENV_BIN="$candidate"
         break
     fi
 done
 
-if [ -z "$VENV_BIN" ]; then
-    echo "ERROR: Could not find ruff, mypy, pytest in any known venv."
+if [ -n "$VENV_BIN" ]; then
+    RUFF="$VENV_BIN/ruff"; MYPY="$VENV_BIN/mypy"; PYTEST="$VENV_BIN/pytest"
+    echo "Using tools from: $VENV_BIN"
+elif command -v ruff >/dev/null && command -v mypy >/dev/null && command -v pytest >/dev/null; then
+    RUFF="ruff"; MYPY="mypy"; PYTEST="pytest"
+    echo "Using tools from: PATH"
+else
+    echo "ERROR: Could not find ruff, mypy, and pytest (in .venv/, venv/, or on PATH)."
     echo "Install dev deps: pip install -e \".[all,dev]\""
     exit 1
 fi
 
 echo "======================================"
-echo "Using tools from: $VENV_BIN"
-echo "======================================"
-
-echo "======================================"
 echo "Running Ruff Linter..."
 echo "======================================"
-"$VENV_BIN/ruff" check counterfact/
+"$RUFF" check counterfact/
 
 echo "======================================"
 echo "Running Mypy Type Checker..."
 echo "======================================"
-"$VENV_BIN/mypy" counterfact/
+"$MYPY" counterfact/
 
 echo "======================================"
 echo "Running Pytest & Coverage..."
 echo "======================================"
-"$VENV_BIN/pytest" --cov=counterfact --cov-fail-under=50
+"$PYTEST" --cov=counterfact --cov-fail-under=50
 
 echo "======================================"
 echo "✅ ALL CHECKS PASSED SUCCESSFULLY!"

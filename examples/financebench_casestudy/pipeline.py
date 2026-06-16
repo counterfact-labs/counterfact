@@ -4,7 +4,7 @@
     synthesizer -> fact_checker -> tone_editor -> output_formatter
 
 build() is a no-arg factory returning the COMPILED graph, so the skill can drive
-it via `--factory financebench_skill.pipeline:build`. The four buggy agents read
+it via `--factory financebench_casestudy.pipeline:build`. The four buggy agents read
 their key instruction from prompts.INSTRUCTIONS (the editable fix surface).
 Synthesizer uses Sonnet; the rest use Haiku.
 """

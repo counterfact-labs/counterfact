@@ -258,6 +258,16 @@ def run_full_diagnostic(
             # Eval suite failure shouldn't block diagnostics
             eval_suite = None
 
+    # ── Decide per-node removal strategy (ablate vs severely degrade) ──
+    # Structural modules (retrievers/parsers/rerankers) are severely degraded
+    # rather than ablated, so removing them does not collapse the pipeline and
+    # their attribution reflects quality, not mere necessity. Set once on the
+    # graph; coalition clones inherit it.
+    if getattr(graph, "_removals", None) is None:
+        from counterfact.degradation import decide_removals
+
+        graph._removals = decide_removals(graph, input_state)
+
     # ── Step 2: Monte Carlo simulations (real re-execution) ──────────
     sim_results = run_monte_carlo(
         graph=graph,
@@ -292,6 +302,7 @@ def run_full_diagnostic(
             "quality_gate",
             True,
             baseline_results,
+            getattr(graph, "_removals", None),
         )
 
         report = DiagnosticReport(
@@ -435,6 +446,7 @@ def run_full_diagnostic(
         attribution_method,
         False,
         baseline_results,
+        getattr(graph, "_removals", None),
     )
 
     report = DiagnosticReport(
@@ -467,6 +479,7 @@ def _build_summary(
     attribution_method,
     quality_gate_passed,
     baseline_results,
+    removal_strategies=None,
 ) -> dict:
     """Build a summary dict for the diagnostic report."""
     return {
@@ -478,6 +491,9 @@ def _build_summary(
         "agents_analyzed": agents,
         "attribution_method": attribution_method,
         "quality_gate_passed": quality_gate_passed,
+        # Per-node perturbation used during attribution: "ablate" or "degrade"
+        # (structural modules are severely degraded rather than ablated).
+        "removal_strategies": dict(removal_strategies or {}),
         "classifiers_used": (
             [c.name for c in baseline_results[0].classifier_results]
             if baseline_results and baseline_results[0].classifier_results
