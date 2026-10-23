@@ -131,7 +131,8 @@ def call_llm(prompt: str, temperature: float = 0.1) -> str:
             anthropic_response = anthropic_client.messages.create(
                 model=_ANTHROPIC_MODEL,
                 max_tokens=2000,
-                temperature=temperature,
+                # The Anthropic API rejects sampling parameters on every model
+                # since 2026-10-21, so temperature applies to Gemini only.
                 messages=[{"role": "user", "content": prompt}],
             )
             block = anthropic_response.content[0]
