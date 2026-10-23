@@ -165,6 +165,10 @@ questions — finding the one agent (of four plausible suspects) that actually c
 failure, fixing it (0/5 → 5/5 exact answers), and showing where an LLM reading the traces
 gets it wrong. Fully reproducible: `PYTHONPATH=examples python -m financebench_casestudy.run_casestudy`.
 
+### Running a team of coding agents
+
+A second skill, [`skills/running-a-team-of-coding-agents/`](skills/running-a-team-of-coding-agents/SKILL.md), turns the post [Engineering Practice for a Team of Agents](https://aryatafvizi.substack.com/p/engineering-practice-for-a-team-of) into instructions an agent can follow when one person directs several coding agents on production software. It covers specs, plans, and tests first, decisions as multiple-choice questions, one worktree per task, a supervisor script for long runs, rules written after failures, structure audits, boundary tests, and what stays with the human. It works on any repository and installs the same way: copy the folder into `~/.claude/skills/`.
+
 ## Removal strategy (ablate or degrade)
 
 To attribute a failure, `diagnose` "removes" each node from coalitions and measures the quality
