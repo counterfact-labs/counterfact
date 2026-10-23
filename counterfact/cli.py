@@ -105,10 +105,11 @@ def _make_anthropic_caller(api_key: str, console: Console):
     console.print(f"  Provider: [bold cyan]Anthropic[/bold cyan] ({model})")
 
     def caller(prompt: str, temperature: float = 0.1) -> str:
+        # Callers pass a temperature, but the Anthropic API rejects sampling
+        # parameters on every model since 2026-10-21, so it is not sent.
         response = client.messages.create(
             model=model,
             max_tokens=2000,
-            temperature=temperature,
             messages=[{"role": "user", "content": prompt}],
         )
         block = response.content[0]
